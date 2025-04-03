@@ -1,4 +1,4 @@
-# SourceRunnerML v4_4_0
+# SourceRunnerML
 
 SourceRunnerML is an advanced machine learning pipeline for microbial source attribution using (cg)MLST data. It combines robust model training with putative source prediction while accommodating a wide range of input schemes and multiple enteric species. The pipeline leverages bootstrapping, parallel processing, and advanced resampling methods to improve model performance and generate reliable predictions.
 
