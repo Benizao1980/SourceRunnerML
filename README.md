@@ -22,7 +22,7 @@ SourceRunnerML supports both:
 - **profile-based attribution** (**OVR mode**), which is recommended for environmental and mixed-source datasets.
 
 ➡️ For a detailed conceptual walkthrough, interpretation guidance, and best-practice recommendations, see:  
-**[`docs/workflow_guide.md`](https://github.com/Benizao1980/SourceRunnerML/blob/main/docs/workflow_guide.md)**
+**[`docs/workflow_guide.md`](https://github.com/Benizao1980/SourceRunnerML/blob/main/docs/workflow.md)**
 
 ---
 
