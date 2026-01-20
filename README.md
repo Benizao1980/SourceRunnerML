@@ -11,7 +11,7 @@ At a high level, the workflow is:
 
 SourceRunnerML supports both:
 - forced single-source attribution (multiclass mode), and
-- profile-based attribution ('OVR mode'), which is recommended for and mixed-source datasets.
+- profile-based attribution (''OVR mode''), which is recommended for and mixed-source datasets.
 
 For a detailed conceptual walkthrough, interpretation guidance, and best-practice recommendations, see:
 docs/workflow_guide.md (link)
