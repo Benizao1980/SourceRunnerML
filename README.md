@@ -1,5 +1,5 @@
 <p align="left">
-  <img src="SourceRunner_logo.webp" width="120" alt="SourceRunnerML logo">
+  <img src="sourcerunner_logo_variantB_tron.svg" width="360" alt="SourceRunnerML logo">
 </p>
 
 # SourceRunnerML
