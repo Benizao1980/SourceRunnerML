@@ -1,4 +1,4 @@
-<p align="left">
+<p align="center">
   <img src="sourcerunner_logo_variantB_tron.svg" width="360" alt="SourceRunnerML logo">
 </p>
 
