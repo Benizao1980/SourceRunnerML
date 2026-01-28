@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="120" viewBox="0 0 360 120" role="img" aria-label="SourceRunner logo (TRON circuit)">
+  <defs>
+    <style>
+      .bg { fill:#000; }
+      .stroke { fill:none; stroke-linecap:square; stroke-linejoin:miter; }
+      .w { stroke:#fff; }
+      .g { stroke:#4F7F6A; }
+    </style>
+    <!-- circuit grid -->
+    <pattern id="grid" width="12" height="12" patternUnits="userSpaceOnUse">
+      <path d="M12 0H0V12" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Outer frame: slightly asymmetric cropping -->
+  <rect class="bg" x="6" y="6" width="348" height="108"/>
+  <!-- cut corner -->
+  <path d="M346 14 L330 14 L346 30 Z" fill="#000"/>
+  <rect class="stroke w" x="14" y="14" width="332" height="92" stroke-width="2"/>
+
+  <!-- faint TRON-ish grid -->
+  <rect x="14" y="14" width="332" height="92" fill="url(#grid)" opacity="0.35"/>
+
+  <!-- Main “circuit bus” in green with orthogonal turns -->
+  <path class="stroke g" d="M28 62 H148 L164 46 H220 L236 62 H332" stroke-width="6"/>
+
+  <!-- Branch circuits (white) -->
+  <path class="stroke w" d="M28 40 H120 L136 56 H164" stroke-width="4" opacity="0.95"/>
+  <path class="stroke w" d="M28 84 H108 L132 60 H164" stroke-width="4" opacity="0.95"/>
+
+  <!-- Probabilistic “tap” points -->
+  <g>
+    <rect x="160" y="42" width="10" height="10" fill="#4F7F6A"/>
+    <rect x="156" y="56" width="10" height="10" fill="#fff"/>
+    <rect x="232" y="56" width="10" height="10" fill="#fff"/>
+  </g>
+
+  <!-- Dropout lane: dotted white trace offset (uncertainty) -->
+  <path class="stroke w" d="M188 88 H332" stroke-width="4" stroke-dasharray="8 10" opacity="0.85"/>
+  <path class="stroke w" d="M28 88 H168" stroke-width="4" opacity="0.75"/>
+
+  <!-- Edge label bars (machine detail) -->
+  <g opacity="0.6">
+    <rect x="24" y="22" width="34" height="2" fill="#fff"/>
+    <rect x="24" y="26" width="22" height="2" fill="#fff"/>
+    <rect x="24" y="30" width="28" height="2" fill="#fff"/>
+  </g>
+
+  <!-- A single thin seam line -->
+  <path class="stroke w" d="M14 74 H346" stroke-width="1.5" opacity="0.25"/>
+</svg>

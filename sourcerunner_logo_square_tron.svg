@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="SourceRunner logo square (TRON)">
+  <defs>
+    <style>
+      .bg { fill:#000; }
+      .stroke { fill:none; stroke-linecap:square; stroke-linejoin:miter; }
+      .w { stroke:#fff; }
+      .g { stroke:#4F7F6A; }
+    </style>
+    <!-- TRON-style grid -->
+    <pattern id="grid" width="16" height="16" patternUnits="userSpaceOnUse">
+      <path d="M16 0H0V16" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Background panel -->
+  <rect class="bg" x="8" y="8" width="240" height="240"/>
+  <rect class="stroke w" x="16" y="16" width="224" height="224" stroke-width="3"/>
+
+  <!-- Faint grid -->
+  <rect x="16" y="16" width="224" height="224" fill="url(#grid)" opacity="0.35"/>
+
+  <!-- Main green circuit bus -->
+  <path class="stroke g" d="M32 128 H104 L128 96 H176 L200 128" stroke-width="10"/>
+
+  <!-- Branch circuits -->
+  <path class="stroke w" d="M32 88 H88 L112 112 H128" stroke-width="6"/>
+  <path class="stroke w" d="M32 168 H80 L112 144 H128" stroke-width="6"/>
+
+  <!-- Probabilistic taps -->
+  <g>
+    <rect x="124" y="92" width="12" height="12" fill="#4F7F6A"/>
+    <rect x="120" y="120" width="12" height="12" fill="#fff"/>
+    <rect x="172" y="120" width="12" height="12" fill="#fff"/>
+  </g>
+
+  <!-- Dropout / uncertainty lane -->
+  <path class="stroke w" d="M144 184 H224" stroke-width="6" stroke-dasharray="10 12" opacity="0.85"/>
+  <path class="stroke w" d="M32 184 H136" stroke-width="6" opacity="0.7"/>
+
+  <!-- Edge label bars -->
+  <g opacity="0.6">
+    <rect x="24" y="24" width="40" height="3" fill="#fff"/>
+    <rect x="24" y="30" width="28" height="3" fill="#fff"/>
+    <rect x="24" y="36" width="34" height="3" fill="#fff"/>
+  </g>
+</svg>
