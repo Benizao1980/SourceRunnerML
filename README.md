@@ -1,114 +1,98 @@
-<p align="center">
-  <img src="sourcerunner_logo_variantB_tron.svg" width="360" alt="SourceRunnerML logo">
-</p>
+# SourceRunnerML v1.0.0
 
-# SourceRunnerML
+This update collects the current working SourceRunnerML scripts used for cgMLST-based Campylobacter source attribution.
 
-*Uncertainty-aware microbial source attribution from population genomic data.*
+## Core scripts
 
-SourceRunnerML is a framework for microbial source attribution built for the kinds of
-pathogen populations we actually work with: **structured, recombining, incompletely
-sampled, and ecologically overlapping**.
+- `SourceRunnerML.py` / `SourceRunnerML_v1_0.py` — patched SourceRunnerML runner with fixed self-test label handling, `--skip_selftest`, and optional STRUCTURE-style prediction plots.
+- `utils_v1_0.py` — utility functions for locus parsing, source-label processing, classifiers, bootstrap training, metrics, and legacy plotting helpers.
+- `sourcerunner_full_validation.py` — full validation wrapper used for the C. coli and C. jejuni cgMLST runs. It compares models, performs cross-validation, fits bootstrap replicate models, predicts with post-burn-in models, and exports uncertainty summaries.
+- `sourcerunner_prediction_postprocess.py` — post-processing script that enriches prediction tables with metadata and generates summaries/plots by country, year, ST, clonal complex, cgST and LINcode.
+- `source_runner_preflight.py` — input checker/formatter for SourceRunner-ready TSVs.
 
-The central idea is simple: in most real datasets, source attribution is not a question
-with a single correct answer. Forcing isolates into definitive categories can be
-convenient, but it often hides the biology. SourceRunnerML is designed to make that
-uncertainty explicit and interpretable, rather than smoothing it away.
+## Recommended full-validation workflow
 
----
-
-## Where this fits
-
-SourceRunnerML is part of a deliberately connected set of tools:
-
-- **PANOPTICON** is used to explore population structure, gene content, and ecological signal
-- **SourceRunnerML** uses those patterns to infer likely sources of infection
-- **BAMPS-ML** applies the same philosophy to antimicrobial resistance phenotypes
-
-Together, these tools support a workflow that moves from  
-**population structure → transmission inference → phenotype prediction**, while keeping
-lineage effects and uncertainty visible throughout.
-
----
-
-## What SourceRunnerML actually does
-
-At a practical level, SourceRunnerML learns genomic patterns associated with known sources
-and applies them to new isolates. Instead of producing a single label per isolate, it
-outputs **source affinity profiles** with associated uncertainty.
-
-In broad terms, the workflow is:
-
-- take genomic feature matrices (currently cgMLST alleles)
-- apply basic filtering and balancing, accounting for missingness
-- train machine-learning models using either multiclass or one-vs-rest strategies
-- optionally stabilise estimates using bootstrapping
-- generate per-isolate probability profiles and confidence intervals
-- summarise attribution patterns for downstream epidemiological interpretation
-
-The emphasis is on **robustness and interpretability**, not on squeezing out marginal gains
-in headline accuracy.
-
----
-
-## Attribution modes
-
-SourceRunnerML supports two complementary inference modes.
-
-### Multiclass mode
-A conventional forced-choice classifier that assigns each isolate to a single source.
-This is mainly useful for benchmarking, method comparison, or tightly controlled datasets.
-
-### Profile-based one-vs-rest (OVR) mode *(recommended)*
-One binary model per source, producing:
-- per-source affinity scores
-- support for co-attribution
-- explicit **Uncertain / Unknown** outcomes where appropriate
-
-OVR mode is intended for **environmental, zoonotic, and mixed-source datasets**, where
-overlap between reservoirs is expected rather than exceptional.
-
-➡️ A more detailed discussion of interpretation and best-practice use is provided in  
-**[`docs/workflow.md`](https://github.com/Benizao1980/SourceRunnerML/blob/main/docs/workflow.md)**
-
----
-
-## Input data
-
-Current versions of SourceRunnerML operate on **cgMLST allele matrices**
-exported from **PubMLST (v2 cgMLST scheme)**.
-
-This reflects the original use cases (*Campylobacter* and other enteric bacteria), but the
-internal design is intentionally general.
-
-### Training file (`--train_file`)
-- one row per isolate
-- `sample_id`
-- `source` (known source label)
-- cgMLST locus columns (numeric; missing values allowed)
-
-### Prediction file (`--predict_file`)
-- same structure as the training file
-- `source` column optional or ignored
-- supports unknown and environmental isolates
-
-Training and prediction files must share overlapping loci. Missing data are handled
-internally.
-
-> Although cgMLST is currently the primary input, the architecture is designed to support
-> alternative genomic feature representations (e.g. gene presence/absence, unitigs) in
-> future releases.
-
----
-
-## Quick start
+Run the full validation wrapper on SourceRunner-ready TSVs containing `CAMP` cgMLST loci and a source column such as `reduced`.
 
 ```bash
-python SourceRunnerML_v0_5_4.py \
-  --train_file TRAIN.tsv \
-  --predict_file PRED.tsv \
-  --predict_mode ovr_profile \
-  --bootstrap 50 \
-  --pred_bootstrap 25 \
-  --level0 generalist_specialist
+python sourcerunner_full_validation.py \
+  --train_file TRAIN.cgmlst.sourcerunner.train.tsv \
+  --predict_file HUMAN.cgmlst.sourcerunner.predict.tsv \
+  --output_dir sourcerunner_outputs \
+  --run_name campylobacter_cgmlst_full \
+  --source_col reduced \
+  --keep_sources Poultry,Ruminant,Pig \
+  --models random_forest,xgboost,logreg,lightgbm,catboost \
+  --cv_folds 5 \
+  --bootstrap 100 \
+  --burn_in 25 \
+  --pred_bootstrap 50 \
+  --min_confidence 0.60 \
+  --cpus 8
 ```
+
+For C. jejuni poultry/ruminant/wild-bird attribution:
+
+```bash
+--keep_sources Poultry,Ruminant,"Wild bird"
+```
+
+## Debug/smoke-test workflow
+
+Use a small subset first to confirm the environment works:
+
+```bash
+python sourcerunner_full_validation.py \
+  --train_file TRAIN.cgmlst.sourcerunner.train.tsv \
+  --predict_file HUMAN.cgmlst.sourcerunner.predict.tsv \
+  --output_dir sourcerunner_debug \
+  --run_name debug \
+  --source_col reduced \
+  --keep_sources Poultry,Ruminant,Pig \
+  --models random_forest,logreg \
+  --cv_folds 3 \
+  --bootstrap 5 \
+  --burn_in 1 \
+  --pred_bootstrap 3 \
+  --max_train_rows 300 \
+  --max_predict_rows 100 \
+  --cpus 8
+```
+
+## Post-processing
+
+After a full validation run:
+
+```bash
+python sourcerunner_prediction_postprocess.py \
+  --predictions path/to/human_predictions_bootstrap_ensemble.tsv \
+  --metadata path/to/original_metadata.csv \
+  --model_comparison path/to/model_comparison_cv_summary.tsv \
+  --bootstrap_metrics path/to/bootstrap_oob_metrics_all_replicates.tsv \
+  --outdir path/to/enriched_outputs \
+  --id_col id
+```
+
+This writes compact enriched prediction tables, metadata summaries, and plots.
+
+## Key outputs from `sourcerunner_full_validation.py`
+
+- `model_comparison_cv_summary.tsv`
+- `cv_classification_report__<model>.json`
+- `cv_confusion_matrix__<model>.tsv`
+- `bootstrap_oob_metrics_all_replicates.tsv`
+- `bootstrap_oob_metrics_post_burnin_summary.tsv`
+- `human_predictions_bootstrap_ensemble.tsv`
+- `prediction_probability_means.tsv`
+- `prediction_probability_sds.tsv`
+- `source_attribution_summary_filtered.tsv`
+- `source_attribution_summary_raw.tsv`
+- `source_by_clonal_complex_filtered.tsv`
+- `prediction_uncertainty_summary.txt/json`
+- `final_model_fit_all_training.pkl`
+
+## Notes
+
+- The full-validation wrapper estimates prediction uncertainty using independently trained bootstrap replicate models. This is preferred over repeating `predict_proba` on a single fitted model.
+- Use `--selection_metric balanced_accuracy` by default for imbalanced source-attribution training data.
+- For older cluster environments, this code remains Python 3.6 compatible.
