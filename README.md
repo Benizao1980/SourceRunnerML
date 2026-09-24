@@ -91,6 +91,14 @@ This writes compact enriched prediction tables, metadata summaries, and plots.
 - `prediction_uncertainty_summary.txt/json`
 - `final_model_fit_all_training.pkl`
 
+## Case studies
+
+### Peru geographic-context source attribution
+
+The active Peru *Campylobacter* analysis is documented in [`case_studies/peru_geography/`](case_studies/peru_geography/README.md).
+
+That case study records the completed *C. jejuni* geographic-context benchmark, leakage audit, lineage-blocked validation, human attribution, size-matched sensitivity analysis and 2,194-genome phylogeny, together with a prepared *C. coli* verification workflow. It is intended to serve as a detailed, reproducible worked example of how SourceRunnerML can be stress-tested when the geographic composition of the source reference population may matter.
+
 ## Notes
 
 - The full-validation wrapper estimates prediction uncertainty using independently trained bootstrap replicate models. This is preferred over repeating `predict_proba` on a single fitted model.
