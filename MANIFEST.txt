@@ -11,7 +11,11 @@ docs/salmonella_pilot_plan.md
 examples/README.md
 examples/example_commands.md
 examples/salmonella_pilot/README.md
-examples/salmonella_pilot/run_pilot_template.sh
+examples/salmonella_pilot/PLAN.md
+examples/salmonella_pilot/config/source_harmonization.example.tsv
+examples/salmonella_pilot/data/README.md
+examples/salmonella_pilot/results/README.md
+examples/salmonella_pilot/scripts/run_pilot.sh
 scripts/SourceRunnerML.py
 scripts/SourceRunnerML_v1_0.py
 scripts/source_runner_preflight.py
