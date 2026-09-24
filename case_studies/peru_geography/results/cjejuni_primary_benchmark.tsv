@@ -1,0 +1,4 @@
+reference_population	n_test	balanced_accuracy	macro_f1	poultry_recall	ruminant_recall	poultry_to_poultry	poultry_to_ruminant	ruminant_to_poultry	ruminant_to_ruminant
+Non-Peru_global	1225	0.754	0.816	0.997	0.510	1073	3	73	76
+Peru_local_OOF	1225	0.875	0.905	0.991	0.758	1066	10	36	113
+Global_plus_Peru_OOF	1225	0.893	0.922	0.993	0.792	1069	7	31	118
