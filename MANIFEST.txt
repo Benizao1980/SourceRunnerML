@@ -6,10 +6,15 @@ requirements-minimal.txt
 requirements.txt
 sourcerunner_logo_square_tron.svg
 sourcerunner_logo_variantB_tron.svg
+docs/README.md
+docs/getting_started.md
+docs/glossary.md
 docs/workflow.md
-docs/salmonella_pilot_plan.md
 examples/README.md
 examples/example_commands.md
+examples/peru_geographic_context/README.md
+examples/peru_geographic_context/REPRODUCIBILITY.md
+examples/peru_geographic_context/STATUS_AND_NEXT_STEPS.md
 examples/salmonella_pilot/README.md
 examples/salmonella_pilot/PLAN.md
 examples/salmonella_pilot/config/source_harmonization.example.tsv
