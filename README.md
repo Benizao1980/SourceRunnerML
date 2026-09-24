@@ -1,147 +1,164 @@
 # SourceRunnerML v1.0.0
 
-SourceRunnerML is a research software framework for **cgMLST-based microbial source attribution**. It trains supervised machine-learning models on source-labelled isolates and estimates the likely source composition of new isolates while retaining uncertainty in the predictions.
+SourceRunnerML is a research software framework for **cgMLST-based microbial source attribution**. It learns genomic patterns from source-labelled isolates and estimates how strongly new isolates resemble the represented source populations.
 
-The current stable workflow has been developed and used for *Campylobacter jejuni* and *Campylobacter coli*. The framework is designed to be extensible to other bacterial pathogens. A worked *Salmonella* feasibility example is now being developed; see [`examples/salmonella_pilot/`](examples/salmonella_pilot/) and [`docs/salmonella_pilot_plan.md`](docs/salmonella_pilot_plan.md).
+> **Important:** source attribution is probabilistic. A prediction means “most similar to the represented reference population(s) under this model”; it does **not** prove an individual transmission event.
 
-> **Status:** active research software. Version 1.0.0 provides a stable working Campylobacter workflow; organism-specific validation is required before applying the framework to a new pathogen or source scheme.
+The stable v1.0 workflow has been developed primarily with *Campylobacter jejuni* and *Campylobacter coli*. Adaptation to other organisms requires organism-specific input handling and validation.
 
-## What SourceRunnerML does
+## Start here
 
-The v1.0.0 full-validation workflow:
+| I want to… | Read / run |
+|---|---|
+| install SourceRunnerML and run a first analysis | [`docs/getting_started.md`](docs/getting_started.md) |
+| understand the modelling workflow and validation | [`docs/workflow.md`](docs/workflow.md) |
+| look up terminology | [`docs/glossary.md`](docs/glossary.md) |
+| see copy/paste command templates | [`examples/example_commands.md`](examples/example_commands.md) |
+| reproduce the Peru geographic-context study | [`examples/peru_geographic_context/`](examples/peru_geographic_context/) |
+| follow the planned Salmonella feasibility work | [`examples/salmonella_pilot/`](examples/salmonella_pilot/) |
 
-- accepts source-labelled cgMLST allele matrices for model training;
-- compares multiple classifiers, including random forest, logistic regression, XGBoost, LightGBM and CatBoost when installed;
-- uses cross-validation and balanced-accuracy-aware model selection;
-- performs independently trained bootstrap replicates with out-of-bag validation;
-- produces a **single multiclass source-probability vector per isolate** for the selected source set;
-- summarizes prediction uncertainty across bootstrap models;
-- exports confusion matrices, classification reports, source-attribution summaries and metadata-enriched outputs.
+## Recommended workflow
 
-Source attribution is probabilistic. Predictions should be interpreted as evidence of genomic similarity to represented source populations, not proof of an individual transmission event.
+For most users, the supported path is:
 
-## Manuscript-scale worked study: Peru geographic context
+1. **Prepare two tab-separated files**: a source-labelled training/reference set and a prediction set.
+2. **Run preflight QC** with `scripts/source_runner_preflight.py`.
+3. **Run model comparison + validation + prediction** with `scripts/sourcerunner_full_validation.py`.
+4. **Inspect class-specific performance and uncertainty**, not only overall accuracy.
+5. **Optionally enrich/plot predictions** with `scripts/sourcerunner_prediction_postprocess.py`.
+6. For publication analyses, add validation appropriate to the biology (for example lineage-blocked or geographic holdouts).
 
-A detailed worked study is available at [`examples/peru_geographic_context/`](examples/peru_geographic_context/).
+The general v1.0 wrapper uses ordinary stratified cross-validation. The Peru manuscript study uses a separate, frozen **lineage-blocked** design documented in its worked-study directory; do not assume the generic wrapper reproduces that study automatically.
 
-This documents the frozen analysis used to test how **geographic composition of source reference genomes changes known-source attribution performance in Peruvian *Campylobacter jejuni***. It includes:
+## Install
 
-- leakage auditing and removal of Peruvian isolates from the global training panel;
-- a fixed lineage-blocked fivefold benchmark;
-- Global vs Peru-local vs Global+Peru reference comparisons;
-- the frozen 50-model XGBoost production profile;
-- size-matched geographic controls and equal-n learning curves;
-- human source attribution for 981 Peruvian *C. jejuni* isolates;
-- nearest-source cgMLST validation;
-- lineage-dependent rescue analyses;
-- Prokka -> PIRATE -> alignment-QC -> IQ-TREE phylogenetic reconstruction;
-- a detailed plan for the ongoing *C. coli* extension.
+```bash
+git clone https://github.com/Benizao1980/SourceRunnerML.git
+cd SourceRunnerML
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python tests/smoke_test_imports.py
+```
 
-The worked study is deliberately separated from the general SourceRunnerML API. SourceRunnerML remains reusable software; the Peru folder records a manuscript-specific scientific design, frozen model settings and provenance needed to reproduce that analysis.
+`requirements.txt` installs the optional tree/boosting classifiers used by the full model-comparison workflow. For a lighter random-forest/logistic-regression environment, use `requirements-minimal.txt` instead.
 
-## Repository layout
+## Minimal input structure
 
-- `scripts/SourceRunnerML.py` / `scripts/SourceRunnerML_v1_0.py` - core SourceRunnerML runner.
-- `scripts/sourcerunner_full_validation.py` - recommended v1.0.0 validation and prediction wrapper.
-- `scripts/sourcerunner_prediction_postprocess.py` - metadata enrichment and summary/plot generation.
-- `scripts/source_runner_preflight.py` - input checking and formatting helpers.
-- `scripts/utils_v1_0.py` - shared model, preprocessing, metrics and plotting functions.
-- `docs/workflow.md` - conceptual workflow and interpretation guide.
-- `examples/` - example commands and worked-study documentation, including the Peru geographic-context analysis.
-- `tests/` - lightweight import/smoke tests.
+Training/reference TSV:
 
-## Input requirements
+```text
+id    source      CAMP0001    CAMP0002    CAMP0003    ...
+A01   Poultry     12          7           103         ...
+A02   Ruminant    8           4           55          ...
+```
 
-The full-validation wrapper expects tab-separated files containing:
+Prediction TSV:
 
-1. an isolate/sample identifier;
-2. a **source label column** in the training file (specified with `--source_col`);
-3. cgMLST allele columns shared by the training and prediction datasets.
+```text
+id    CAMP0001    CAMP0002    CAMP0003    ...
+H01   12          7           104         ...
+H02   8           4           55          ...
+```
 
-For the current Campylobacter workflow, cgMLST loci are identified using a common prefix (normally `CAMP`). Missing alleles are supported and loci with excessive missingness can be filtered before imputation.
+The training file needs a source-label column (`--source_col`). The current Campylobacter full-validation wrapper identifies cgMLST loci using a common prefix (`--loci_prefix`, default `CAMP`). Generalising locus selection beyond a common prefix is tracked in issue #5.
 
-The planned Salmonella extension will remove the assumption that all cgMLST columns share a simple locus prefix and will document an explicit locus-selection workflow suitable for EnteroBase Salmonella profiles.
-
-Full genomic datasets and analysis outputs are intentionally not stored in this repository. Worked examples should use small public or redistributable subsets, or scripts that reconstruct them from public resources.
-
-## Recommended full-validation workflow
+## Quick debug run
 
 ```bash
 python scripts/sourcerunner_full_validation.py \
   --train_file TRAIN.cgmlst.sourcerunner.train.tsv \
-  --predict_file HUMAN.cgmlst.sourcerunner.predict.tsv \
-  --output_dir sourcerunner_outputs \
-  --run_name campylobacter_cgmlst_full \
-  --source_col reduced \
+  --predict_file PREDICT.cgmlst.sourcerunner.predict.tsv \
+  --output_dir sourcerunner_debug \
+  --run_name debug \
+  --source_col source \
   --keep_sources Poultry,Ruminant,Pig \
-  --models random_forest,xgboost,logreg,lightgbm,catboost \
-  --cv_folds 5 \
-  --bootstrap 100 \
-  --burn_in 25 \
-  --pred_bootstrap 50 \
-  --min_confidence 0.60 \
-  --cpus 8
+  --models random_forest,logreg \
+  --cv_folds 3 \
+  --bootstrap 5 \
+  --burn_in 1 \
+  --pred_bootstrap 3 \
+  --max_train_rows 300 \
+  --max_predict_rows 100 \
+  --cpus 4
 ```
 
-For a *C. jejuni* poultry/ruminant/wild-bird analysis:
+Use the small debug settings only to check that the pipeline and input format work. They are not publication-grade validation settings.
 
-```bash
---keep_sources Poultry,Ruminant,"Wild bird"
-```
+## What the full-validation wrapper does
 
-For a quick smoke-test run, reduce the number of folds/bootstrap replicates and use `--max_train_rows` / `--max_predict_rows`; examples are provided in [`examples/example_commands.md`](examples/example_commands.md).
+The recommended wrapper can:
+
+- retain a defined candidate source set;
+- filter loci with excessive missingness and impute remaining missing alleles;
+- compare random forest, logistic regression, XGBoost, LightGBM and CatBoost when installed;
+- select models using balanced accuracy (default) or another supported metric;
+- write out-of-fold cross-validation predictions, confusion matrices and class-specific reports;
+- retrain independent bootstrap models and evaluate out-of-bag performance;
+- average prediction probabilities across independently trained replicate models;
+- report uncertainty and low-confidence predictions rather than silently forcing certainty.
 
 ## Key outputs
 
-`sourcerunner_full_validation.py` writes, among other files:
+Common outputs include:
 
-- `model_comparison_cv_summary.tsv`
-- `cv_classification_report__<model>.json`
-- `cv_confusion_matrix__<model>.tsv`
-- `bootstrap_oob_metrics_all_replicates.tsv`
-- `bootstrap_oob_metrics_post_burnin_summary.tsv`
-- `human_predictions_bootstrap_ensemble.tsv`
-- `prediction_probability_means.tsv`
-- `prediction_probability_sds.tsv`
-- `source_attribution_summary_filtered.tsv`
-- `source_attribution_summary_raw.tsv`
-- `prediction_uncertainty_summary.txt/json`
-- `final_model_fit_all_training.pkl`
+- `run_setup.txt/json` — exact run settings and retained-locus counts;
+- `model_comparison_cv_summary.tsv` — model comparison;
+- `cv_confusion_matrix__<model>.tsv` — source-specific errors;
+- `cv_classification_report__<model>.json` — precision/recall/F1 by source;
+- `bootstrap_oob_metrics_all_replicates.tsv` — bootstrap/OOB validation;
+- `bootstrap_oob_metrics_post_burnin_summary.tsv` — summary after the configured burn-in;
+- `human_predictions_bootstrap_ensemble.tsv` (historical filename) — ensemble predictions for the supplied prediction set;
+- `prediction_probability_means.tsv` and `prediction_probability_sds.tsv` — probability and uncertainty summaries;
+- `final_model_fit_all_training.pkl` — final fitted model object.
 
-Prediction uncertainty is estimated using **independently trained bootstrap replicate models**, rather than repeatedly calling `predict_proba` on one fitted model. Balanced accuracy is the default model-selection metric for imbalanced source-attribution datasets.
+The prediction set does not have to be human; some historical filenames retain the Campylobacter development terminology.
 
-## Post-processing
+## Repository structure
 
-```bash
-python scripts/sourcerunner_prediction_postprocess.py \
-  --predictions path/to/human_predictions_bootstrap_ensemble.tsv \
-  --metadata path/to/original_metadata.csv \
-  --model_comparison path/to/model_comparison_cv_summary.tsv \
-  --bootstrap_metrics path/to/bootstrap_oob_metrics_all_replicates.tsv \
-  --outdir path/to/enriched_outputs \
-  --id_col id
+```text
+SourceRunnerML/
+├── scripts/                    # executable workflow code
+├── docs/                       # getting-started, concepts and terminology
+├── examples/                   # command templates and worked studies
+│   ├── peru_geographic_context/
+│   └── salmonella_pilot/
+├── tests/                      # lightweight smoke tests
+├── requirements.txt
+└── README.md
 ```
 
-This produces compact prediction tables and summaries by available metadata such as country, year, sequence type, clonal complex, cgST and LIN code.
+For first-time use, start with `sourcerunner_full_validation.py`. `SourceRunnerML.py`, `SourceRunnerML_v1_0.py` and `utils_v1_0.py` are lower-level research/development code and are retained for compatibility and method development.
 
-## Validation and responsible use
+## Worked studies vs reusable software
 
-For new organisms or source schemes, users should explicitly evaluate:
+The `examples/` directory deliberately separates **general software behaviour** from **study-specific scientific designs**.
 
-- representation and imbalance of candidate source populations;
-- lineage leakage between training and validation sets;
-- geographic and temporal generalizability;
-- per-source classification performance and confusion;
-- probability calibration and low-confidence predictions;
-- whether the available reference collection can genuinely discriminate the proposed source categories.
+- **Peru geographic context**: a frozen manuscript-scale analysis with leakage auditing, fixed lineage-blocked folds, size-matched controls, human attribution, nearest-source validation and phylogenetic reconstruction.
+- **Salmonella pilot**: a planning/feasibility scaffold. It does not yet claim Salmonella performance results.
 
-The planned Salmonella worked example will demonstrate lineage-grouped validation, geographic holdouts where feasible, probability calibration and propagation of source-attribution uncertainty into downstream epidemiologic analyses.
+Full private genomic datasets and large derived outputs are not stored in this repository. Worked studies should contain redistributable data, aggregate results, or instructions for rebuilding inputs from their original sources.
 
-## Software notes
+## Validation principles
 
-- Python 3.6 compatibility is retained for older HPC environments in the v1.0.0 workflow.
-- Some optional classifiers require their corresponding Python packages.
-- Several experimental options in the core runner are retained for development but are not part of the recommended v1.0.0 workflow; use the documented full-validation wrapper for reproducible analyses.
+Before interpreting source predictions, check:
+
+- sample numbers and imbalance by source;
+- whether closely related lineages occur in both training and validation folds;
+- geographic and temporal representativeness;
+- source-specific recall/precision and confusion, not just overall accuracy;
+- calibration/uncertainty where relevant;
+- whether the proposed source categories are genuinely distinguishable with the available reference collection.
+
+See [`docs/workflow.md`](docs/workflow.md) for interpretation guidance and [`docs/glossary.md`](docs/glossary.md) for definitions.
+
+## Status and development priorities
+
+SourceRunnerML v1.0.0 is active research software. Current priorities are tracked as focused GitHub issues, particularly:
+
+- generalising locus selection beyond a shared prefix (issue #5);
+- completing the Peru *C. coli* extension and deciding its validation design (issue #11);
+- optional broader hyperparameter tuning (issue #4).
 
 ## License
 
