@@ -1,0 +1,26 @@
+# Keep study data and large HPC-derived artifacts out of GitHub.
+data_inputs/
+work/
+
+# Genome / pangenome / phylogeny intermediates
+*.fasta
+*.fa
+*.fna
+*.gff
+*.phy
+*.ckp.gz
+*.model.gz
+*.ufboot
+*.contree
+*.mldist
+*.bionj
+
+# HPC/log output
+*.log
+slurm-*.out
+*.err
+
+# Python/cache/editor noise
+__pycache__/
+*.pyc
+.DS_Store
