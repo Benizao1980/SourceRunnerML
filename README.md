@@ -20,6 +20,25 @@ The v1.0.0 full-validation workflow:
 
 Source attribution is probabilistic. Predictions should be interpreted as evidence of genomic similarity to represented source populations, not proof of an individual transmission event.
 
+## Manuscript-scale worked study: Peru geographic context
+
+A detailed worked study is available at [`examples/peru_geographic_context/`](examples/peru_geographic_context/).
+
+This documents the frozen analysis used to test how **geographic composition of source reference genomes changes known-source attribution performance in Peruvian *Campylobacter jejuni***. It includes:
+
+- leakage auditing and removal of Peruvian isolates from the global training panel;
+- a fixed lineage-blocked fivefold benchmark;
+- Global vs Peru-local vs Global+Peru reference comparisons;
+- the frozen 50-model XGBoost production profile;
+- size-matched geographic controls and equal-n learning curves;
+- human source attribution for 981 Peruvian *C. jejuni* isolates;
+- nearest-source cgMLST validation;
+- lineage-dependent rescue analyses;
+- Prokka -> PIRATE -> alignment-QC -> IQ-TREE phylogenetic reconstruction;
+- a detailed plan for the ongoing *C. coli* extension.
+
+The worked study is deliberately separated from the general SourceRunnerML API. SourceRunnerML remains reusable software; the Peru folder records a manuscript-specific scientific design, frozen model settings and provenance needed to reproduce that analysis.
+
 ## Repository layout
 
 - `scripts/SourceRunnerML.py` / `scripts/SourceRunnerML_v1_0.py` - core SourceRunnerML runner.
@@ -28,7 +47,7 @@ Source attribution is probabilistic. Predictions should be interpreted as eviden
 - `scripts/source_runner_preflight.py` - input checking and formatting helpers.
 - `scripts/utils_v1_0.py` - shared model, preprocessing, metrics and plotting functions.
 - `docs/workflow.md` - conceptual workflow and interpretation guide.
-- `examples/` - example commands and worked-example placeholders.
+- `examples/` - example commands and worked-study documentation, including the Peru geographic-context analysis.
 - `tests/` - lightweight import/smoke tests.
 
 ## Input requirements
