@@ -1,19 +1,63 @@
 # SourceRunnerML examples
 
-This directory contains reproducible command examples and worked-study scaffolds. Full cgMLST datasets and large SourceRunnerML outputs are intentionally not stored in GitHub.
+This directory contains **command templates and study-specific worked examples**. It is deliberately separate from the reusable software in `scripts/` and the general documentation in `docs/`.
 
-Use SourceRunner-ready TSV files with:
+If you are new to SourceRunnerML, start with [`../docs/getting_started.md`](../docs/getting_started.md) rather than opening a worked study first.
 
-- an isolate/sample identifier column, usually `id` or `isolate`;
-- a source-label column for training, usually `source` or `reduced`;
-- cgMLST allele columns shared between training and prediction datasets.
+## What is here?
 
-For quick testing, use `--max_train_rows` and `--max_predict_rows` before launching full HPC jobs.
+### `example_commands.md`
 
-## Available examples
+Copy/paste templates for:
 
-- [`example_commands.md`](example_commands.md) - Campylobacter-oriented debug and full-validation command templates.
-- [`peru_geographic_context/`](peru_geographic_context/) - detailed manuscript-scale worked study of geographic reference-population effects in Peruvian *Campylobacter jejuni*, including frozen benchmark results, leakage control, lineage-blocked validation, size-matched controls, human attribution, nearest-source validation, PIRATE/IQ-TREE phylogeny, and the planned *C. coli* extension.
-- [`salmonella_pilot/`](salmonella_pilot/) - planned small Salmonella feasibility example for adapting the framework to EnteroBase Salmonella cgMLST data.
+- Campylobacter cgMLST preflight;
+- a small debug run;
+- a standard full-validation run;
+- post-processing.
 
-The Peru worked study is intentionally separated from the general SourceRunnerML API: it documents the exact scientific design and frozen manuscript analysis profile. The Salmonella pilot is likewise separated from the final K01 analysis: it is a worked example to demonstrate data ingestion, baseline multiclass source attribution and validation scaffolding, not a definitive source-attribution model for US salmonellosis.
+These use the **general v1.0 wrapper**.
+
+### `peru_geographic_context/`
+
+A manuscript-scale worked study of geographic reference-population effects in Peruvian *Campylobacter jejuni*.
+
+It documents study-specific choices that are **stricter than the generic wrapper defaults**, including:
+
+- removal of Peru leakage from the non-Peru global reference panel;
+- fixed lineage-blocked validation folds;
+- Global vs Peru-local vs combined reference comparisons;
+- size-matched controls and learning curves;
+- human attribution and nearest-source sensitivity analyses;
+- PIRATE/IQ-TREE phylogenetic reconstruction;
+- the plan for the *C. coli* extension.
+
+Use this folder when reproducing or extending that study. Do not treat its frozen model settings as universal SourceRunnerML defaults.
+
+### `salmonella_pilot/`
+
+A planned feasibility example for adapting SourceRunnerML to Salmonella/EnteroBase cgMLST data.
+
+It currently contains planning, source-harmonisation and runner scaffolding. **No Salmonella performance results are claimed yet.**
+
+The major software issue to resolve before a definitive Salmonella workflow is general locus selection beyond the Campylobacter-style common prefix (issue #5).
+
+## Data policy
+
+Do not commit restricted clinical metadata, private genomes or large derived analysis directories to this repository.
+
+Worked studies should contain one or more of:
+
+- small redistributable example data;
+- aggregate non-sensitive results;
+- scripts/configuration;
+- exact instructions for recreating inputs from their original public or controlled-access source.
+
+## Input reminder
+
+The standard full-validation wrapper expects SourceRunner-ready TSVs with:
+
+- a source-label column in the training table;
+- cgMLST allele columns shared between training and prediction tables;
+- stable isolate IDs strongly recommended for auditability.
+
+See [`../docs/getting_started.md`](../docs/getting_started.md) for the full input/preflight workflow.
