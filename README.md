@@ -46,7 +46,7 @@ For most users, the supported path is:
 5. **Optionally enrich/plot predictions** with `scripts/sourcerunner_prediction_postprocess.py`.
 6. For publication analyses, add validation appropriate to the biology (for example lineage-blocked or geographic holdouts).
 
-**Validation caveat:** the general v1.0 wrapper currently filters loci and fits its missing-value imputer on the complete training table *before* splitting into CV/OOB subsets. These metrics may be optimistic; do not present them as leakage-free validation. See the [tutorial](docs/tutorial.md#8-critical-scientific-cautions). The wrapper uses ordinary stratified cross-validation. The Peru manuscript study uses a separate, frozen **lineage-blocked** design documented in its worked-study directory; do not assume the generic wrapper reproduces that study automatically.
+**Validation caveat:** the general v1.0 wrapper currently filters loci and fits its missing-value imputer on the complete training table *before* splitting into CV/OOB subsets. These metrics may be optimistic; do not present them as leakage-free validation. See the [tutorial](docs/tutorial.md#8-critical-scientific-cautions). The wrapper uses ordinary stratified cross-validation. See [issue #13](https://github.com/Benizao1980/SourceRunnerML/issues/13). The Peru manuscript study uses a separate, frozen **lineage-blocked** design documented in its worked-study directory; do not assume the generic wrapper reproduces that study automatically.
 
 ## Install
 
