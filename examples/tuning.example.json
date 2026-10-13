@@ -1,0 +1,19 @@
+{
+  "random_forest": {
+    "n_estimators": [
+      100,
+      300
+    ],
+    "max_depth": [
+      null,
+      12
+    ]
+  },
+  "logreg": {
+    "C": [
+      0.1,
+      1,
+      10
+    ]
+  }
+}
