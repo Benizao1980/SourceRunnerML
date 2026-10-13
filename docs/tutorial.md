@@ -40,10 +40,10 @@ cd SourceRunnerML
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-minimal.txt
-python tests/smoke_test_imports.py
+python scripts/sourcerunner_full_validation.py --help
 ~~~
 
-For all optional model families install the full requirements instead. A first lesson needs only random forest and logistic regression.
+For all optional model families and the legacy import smoke-test, install the full requirements instead. The older `tests/smoke_test_imports.py` loads legacy utilities which unconditionally import XGBoost, LightGBM and CatBoost, so it is **not** an appropriate check for a minimal install. A first lesson needs only random forest and logistic regression.
 
 ## 4. Generate reproducible toy data
 
@@ -55,14 +55,8 @@ python examples/toy_quickstart/make_toy_data.py --outdir toy_data
 
 This writes two tab-delimited files:
 
-- ~~~text
-  toy_data/train.tsv
-  ~~~
-  with 180 artificial source-labelled isolates (Poultry, Ruminant, Pig), 60 each.
-- ~~~text
-  toy_data/predict.tsv
-  ~~~
-  with 30 artificial prediction isolates. The extra demo_truth column exists only for checking this toy lesson; the model does not use it.
+- `toy_data/train.tsv` — 180 artificial source-labelled isolates (Poultry, Ruminant, Pig), 60 each.
+- `toy_data/predict.tsv` — 30 artificial prediction isolates. The extra demo_truth column exists only for checking this toy lesson; the model does not use it.
 
 There are 120 invented CAMP loci shared across both tables. The data include deliberate missing calls and artificial class signal. They **must not** be interpreted as evidence about biological source specificity or expected real-world accuracy.
 
@@ -89,9 +83,7 @@ python scripts/source_runner_preflight.py \
   --write_tsv
 ~~~
 
-Inspect ~~~text
-toy_preflight/source_runner_preflight_report.txt
-~~~ and its JSON equivalent. Check source counts, shared loci, duplicate IDs, non-numeric calls, and missingness. The pattern flag is important: the preflight's historical default otherwise looks for seven MLST housekeeping loci.
+Inspect `toy_preflight/source_runner_preflight_report.txt` and its JSON equivalent. Check source counts, shared loci, duplicate IDs, non-numeric calls, and missingness. The pattern flag is important: the preflight's historical default otherwise looks for seven MLST housekeeping loci.
 
 ## 6. Fit a small educational model
 
@@ -113,34 +105,17 @@ python scripts/sourcerunner_full_validation.py \
   --cpus 2
 ~~~
 
-The wrapper writes a timestamped folder under ~~~text
-toy_results/
-~~~; follow the printed path. The toy data are small, but actual runs can need substantial memory.
+The wrapper writes a timestamped folder under `toy_results/`; follow the printed path. The toy data are small, but actual runs can need substantial memory.
 
 ## 7. Read outputs like a scientist
 
 Start with these files **in order**:
 
-1. ~~~text
-   run_setup.json
-   ~~~
-   — were all intended sources, loci and files used?
-2. ~~~text
-   model_comparison_cv_summary.tsv
-   ~~~
-   — which model succeeded and what is its balanced accuracy?
-3. ~~~text
-   cv_confusion_matrix__random_forest.tsv
-   ~~~
-   — which source classes get confused?
-4. ~~~text
-   bootstrap_oob_metrics_post_burnin_summary.tsv
-   ~~~
-   — how variable is the repeated in-bag/out-of-bag evaluation?
-5. ~~~text
-   human_predictions_bootstrap_ensemble.tsv
-   ~~~
-   — inspect each probability vector and Uncertain calls. The filename is historical: any organisms/target categories can be predicted.
+1. `run_setup.json` — were all intended sources, loci and files used?
+2. `model_comparison_cv_summary.tsv` — which model succeeded and what is its balanced accuracy?
+3. `cv_confusion_matrix__random_forest.tsv` — which source classes get confused?
+4. `bootstrap_oob_metrics_post_burnin_summary.tsv` — how variable is the repeated in-bag/out-of-bag evaluation?
+5. `human_predictions_bootstrap_ensemble.tsv` — inspect each probability vector and Uncertain calls. The filename is historical: any organisms/target categories can be predicted.
 
 The total probability across the candidate classes should be approximately 1.00 for each prediction. Probability **disagreement between bootstrap models** is different from **calibration**; neither by itself proves a prediction is correct.
 
@@ -148,7 +123,7 @@ The total probability across the candidate classes should be approximately 1.00 
 
 - **Not an external test.** A toy run is an operational check, not validation for real-world attribution.
 - **Current wrapper uses ordinary stratified CV.** Closely related isolates can be split across folds. For outbreak-prone or clonal taxa, add lineage-blocked CV, time/geography holdouts and external validation.
-- **Preprocessing caveat (current v1 wrapper):** it fits the imputer and missingness filter before splitting for CV and bootstrap/OOB. This can leak information from held-out rows into preprocessing and make validation optimistic. Do **not** claim fully leakage-safe CV/OOB from this wrapper until fold-contained preprocessing is implemented and verified.
+- **Preprocessing caveat (current v1 wrapper):** it fits the imputer and missingness filter before splitting for CV and bootstrap/OOB. This can leak information from held-out rows into preprocessing and make validation optimistic (see [issue #13](https://github.com/Benizao1980/SourceRunnerML/issues/13)). Do **not** claim fully leakage-safe CV/OOB from this wrapper until fold-contained preprocessing is implemented and verified.
 - **Allele numbering is nominal.** Numeric classifiers currently see allele IDs as numbers. Especially for logistic regression, numeric ordering should not be misread as biological distance; test alternative representations/sensitivity.
 - **Class imbalance and reference bias matter.** Look at each source's recall, balanced accuracy, and sensitivity to panel composition.
 - **Labels are conditional on candidate classes.** An unrepresented reservoir does not have its own output probability.
