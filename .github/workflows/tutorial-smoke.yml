@@ -11,6 +11,9 @@ on:
       - "requirements-minimal.txt"
       - "tests/test_toy_quickstart.py"
       - "tests/test_validation_features.py"
+      - "tests/test_optional_tuning.py"
+      - "scripts/sourcerunner_tuning.py"
+      - "examples/tuning.example.json"
       - "scripts/sourcerunner_features.py"
       - ".github/workflows/tutorial-smoke.yml"
   pull_request:
@@ -22,6 +25,9 @@ on:
       - "requirements-minimal.txt"
       - "tests/test_toy_quickstart.py"
       - "tests/test_validation_features.py"
+      - "tests/test_optional_tuning.py"
+      - "scripts/sourcerunner_tuning.py"
+      - "examples/tuning.example.json"
       - "scripts/sourcerunner_features.py"
       - ".github/workflows/tutorial-smoke.yml"
 
@@ -40,6 +46,8 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_toy_quickstart.py' -v
       - name: Check fold-safe preprocessing and feature selection
         run: python -m unittest discover -s tests -p 'test_validation_features.py' -v
+      - name: Test optional tuning on small partitions
+        run: python -m unittest discover -s tests -p 'test_optional_tuning.py' -v
       - name: Generate and inspect toy data
         run: |
           python examples/toy_quickstart/make_toy_data.py --outdir toy_data
@@ -130,4 +138,35 @@ jobs:
           probabilities = df.filter(regex=r"^prob_mean_")
           assert len(probabilities.columns) == 3
           assert (probabilities.sum(axis=1) - 1).abs().max() < 1e-6
+          PY
+
+      - name: Exercise optional tuning without leakage
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          Path("toy_data/tiny_tune.json").write_text(
+              json.dumps({"random_forest": {"n_estimators": [10, 20], "max_depth": [None, 4]}})
+          )
+          PY
+          python scripts/sourcerunner_full_validation.py \
+            --train_file toy_data/train.tsv \
+            --predict_file toy_data/predict.tsv \
+            --output_dir tuning_smoke --run_name nested_grid \
+            --source_col source --keep_sources Poultry,Ruminant,Pig \
+            --loci_prefix CAMP --models random_forest \
+            --tuning_config toy_data/tiny_tune.json --inner_cv_folds 2 \
+            --cv_folds 2 --bootstrap 2 --burn_in 0 --pred_bootstrap 2 \
+            --max_train_rows 90 --max_predict_rows 12 --cpus 2
+          python - <<'PY'
+          import glob, json, pandas as pd
+          from pathlib import Path
+          folder = Path(glob.glob("tuning_smoke/nested_grid_*/final_model_tuning.json")[0]).parent
+          t = json.loads((folder / "final_model_tuning.json").read_text())
+          assert t["tuned"] and t["candidates"] == 4, t
+          folds = pd.read_csv(folder / "cv_fold_retained_loci__random_forest.tsv", sep="\t")
+          assert folds["tuning"].str.contains('"tuned": true').all()
+          metrics = pd.read_csv(folder / "bootstrap_oob_metrics_all_replicates.tsv", sep="\t")
+          assert metrics["tuning"].str.contains('"tuned": true').all()
+          print("Inner-fold and in-bag tuning smoke test passed")
           PY

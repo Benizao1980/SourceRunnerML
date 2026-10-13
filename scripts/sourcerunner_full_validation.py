@@ -33,6 +33,7 @@ from joblib import Parallel, delayed
 
 from sklearn.pipeline import Pipeline
 from sourcerunner_features import AllelePreprocessor, select_shared_loci
+from sourcerunner_tuning import fit_with_optional_tuning, load_tuning_config
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -61,6 +62,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--loci_pattern", default="", help="Regex matched at beginning of locus column name")
     p.add_argument("--loci_file", default="", help="One locus name per line; requires exact columns in train and prediction tables")
     p.add_argument("--missingness", type=float, default=0.20)
+    p.add_argument("--tuning_config", default="", help="Optional JSON model->parameter list grids; disabled by default")
+    p.add_argument("--inner_cv_folds", type=int, default=3, help="Training-only folds for optional nested tuning")
     p.add_argument("--cv_folds", type=int, default=5)
     p.add_argument("--models", default="random_forest,xgboost,logreg,lightgbm,catboost")
     p.add_argument("--selection_metric", default="balanced_accuracy", choices=["balanced_accuracy", "macro_f1", "weighted_f1", "accuracy"])
@@ -183,14 +186,18 @@ def write_report_json_and_txt(outdir: Path, stem: str, payload: dict):
     (outdir / f"{stem}.txt").write_text("\n".join(lines) + "\n")
 
 
-def cross_validate_model(model_name: str, X: pd.DataFrame, y: np.ndarray, labels: List[str], args: argparse.Namespace, outdir: Path):
+def cross_validate_model(model_name: str, X: pd.DataFrame, y: np.ndarray, labels: List[str], args: argparse.Namespace, outdir: Path, grids=None):
     start = time.time()
     cv = StratifiedKFold(n_splits=args.cv_folds, shuffle=True, random_state=args.random_seed)
     y_pred = np.full(len(y), -1, dtype=int)
     fold_records = []
     for fold, (tr, te) in enumerate(cv.split(X, y)):
         model = make_pipeline(model_name, args.cpus, args.random_seed, args.missingness)
-        model.fit(X.iloc[tr], y[tr])
+        model, tuning = fit_with_optional_tuning(
+            model, X.iloc[tr], y[tr], model_name=model_name,
+            grids=grids or {}, metric=args.selection_metric,
+            inner_folds=args.inner_cv_folds, seed=args.random_seed + fold,
+        )
         y_pred[te] = model.predict(X.iloc[te])
         fold_records.append({
             "fold": fold,
@@ -198,6 +205,7 @@ def cross_validate_model(model_name: str, X: pd.DataFrame, y: np.ndarray, labels
             "test_n": len(te),
             "loci_retained": len(model.named_steps["alleles"].retained_loci_),
             "loci": ",".join(model.named_steps["alleles"].retained_loci_),
+            "tuning": json.dumps(tuning, sort_keys=True),
         })
     if np.any(y_pred < 0):
         raise ValueError("Some CV isolates were not evaluated")
@@ -235,11 +243,16 @@ def stratified_bootstrap_indices(y: np.ndarray, rng: np.random.Generator) -> Tup
 
 
 def fit_bootstrap_replicate(rep: int, model_name: str, X: pd.DataFrame, y: np.ndarray,
-                            seed: int, cpus_per_model: int, missingness: float = 0.20):
+                            seed: int, cpus_per_model: int, missingness: float = 0.20,
+                            grids=None, selection_metric="balanced_accuracy", inner_folds=3):
     rng = np.random.default_rng(seed + rep)
     tr, te = stratified_bootstrap_indices(y, rng)
     model = make_pipeline(model_name, cpus_per_model, seed + rep, missingness)
-    model.fit(X.iloc[tr], y[tr])
+    model, tuning = fit_with_optional_tuning(
+        model, X.iloc[tr], y[tr], model_name=model_name,
+        grids=grids or {}, metric=selection_metric,
+        inner_folds=inner_folds, seed=seed + rep,
+    )
     if len(te) > 0:
         pred = model.predict(X.iloc[te])
         metrics = metric_dict(y[te], pred)
@@ -249,6 +262,7 @@ def fit_bootstrap_replicate(rep: int, model_name: str, X: pd.DataFrame, y: np.nd
                    "weighted_f1": np.nan, "oob_n": 0}
     metrics["replicate"] = rep
     metrics["loci_retained"] = len(model.named_steps["alleles"].retained_loci_)
+    metrics["tuning"] = json.dumps(tuning, sort_keys=True)
     return metrics, model
 
 def entropy_from_probs(p: np.ndarray) -> np.ndarray:
@@ -332,6 +346,7 @@ def main():
         "prediction_bootstrap_models": args.pred_bootstrap,
         "min_confidence": args.min_confidence,
         "selection_metric": args.selection_metric,
+        "tuning_config": args.tuning_config,
     }
     (outdir / "shared_loci_selected.txt").write_text("\n".join(shared_loci) + "\n")
     write_report_json_and_txt(outdir, "run_setup", setup)
@@ -340,12 +355,23 @@ def main():
     if len(labels) < 2 or min(np.bincount(y)) < args.cv_folds:
         raise SystemExit(f"Each source requires at least {args.cv_folds} training isolates for CV")
 
+    try:
+        grids = load_tuning_config(
+            args.tuning_config, model_names,
+            lambda name: get_model(name, n_jobs=args.cpus, random_state=args.random_seed),
+        )
+    except (ValueError, OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Invalid tuning configuration: {exc}") from exc
+    setup["tuning_grids"] = grids
+    setup["inner_cv_folds"] = args.inner_cv_folds if grids else None
+    write_report_json_and_txt(outdir, "run_setup", setup)
+
     # Model comparison by full out-of-fold CV.
     cv_rows = []
     for name in model_names:
         print(f"CV model: {name}", flush=True)
         try:
-            cv_rows.append(cross_validate_model(name, X_raw, y, labels, args, outdir))
+            cv_rows.append(cross_validate_model(name, X_raw, y, labels, args, outdir, grids=grids))
         except Exception as e:
             cv_rows.append({"model": name, "status": "failed", "error": f"{type(e).__name__}: {e}"})
             print(f"  skipped/failed: {e}", flush=True)
@@ -366,7 +392,11 @@ def main():
     for i in range(args.bootstrap):
         if i == 0 or (i + 1) % 10 == 0 or (i + 1) == args.bootstrap:
             print(f"  bootstrap replicate {i + 1}/{args.bootstrap}", flush=True)
-        results.append(fit_bootstrap_replicate(i, best_name, X_raw, y, args.random_seed, cpus_per_model, args.missingness))
+        results.append(fit_bootstrap_replicate(
+            i, best_name, X_raw, y, args.random_seed, cpus_per_model,
+            args.missingness, grids=grids,
+            selection_metric=args.selection_metric, inner_folds=args.inner_cv_folds,
+        ))
     boot_metrics = [m for m, _ in results]
     boot_models = [m for _, m in results]
     boot_df = pd.DataFrame(boot_metrics)
@@ -377,7 +407,12 @@ def main():
 
     # Final prediction model may fit on all labelled training rows: no held-out scores are derived from it.
     final_pipeline = make_pipeline(best_name, args.cpus, args.random_seed, args.missingness)
-    final_pipeline.fit(X_raw, y)
+    final_pipeline, final_tuning = fit_with_optional_tuning(
+        final_pipeline, X_raw, y, model_name=best_name, grids=grids,
+        metric=args.selection_metric, inner_folds=args.inner_cv_folds,
+        seed=args.random_seed,
+    )
+    write_report_json_and_txt(outdir, "final_model_tuning", final_tuning)
     final_preprocessor = final_pipeline.named_steps["alleles"]
     loci = list(final_preprocessor.retained_loci_)
     (outdir / "retained_loci_final.txt").write_text("\n".join(loci) + "\n")

@@ -8,6 +8,10 @@ For a complete, runnable teaching example with simulated cgMLST tables, start wi
 
 Then use [`getting_started.md`](getting_started.md). It covers installation, input tables, preflight QC, a small debug run, the full-validation command, output interpretation and common failure modes.
 
+## For optional classifier tuning
+
+See [`tuning.md`](tuning.md) for opt-in JSON model-specific hyperparameter grids, training-partition-only inner CV, output records and validation limitations.
+
 ## For methods and interpretation
 
 Read [`workflow.md`](workflow.md). It explains the modelling logic, reference-set checks, validation, bootstrap/OOB uncertainty and interpretation limits.

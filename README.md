@@ -160,6 +160,10 @@ The `examples/` directory deliberately separates **general software behaviour** 
 
 Full private genomic datasets and large derived outputs are not stored in this repository. Worked studies should contain redistributable data, aggregate results, or instructions for rebuilding inputs from their original sources.
 
+## Optional hyperparameter tuning
+
+An opt-in `--tuning_config examples/tuning.example.json` enables classifier-specific parameter grids using *inner cross-validation within each training fold or bootstrap in-bag sample*. Defaults are unchanged when omitted. Read [the tuning guide](docs/tuning.md) before using on a scientific dataset; it does not remove lineage/geographic validation requirements.
+
 ## Validation principles
 
 Before interpreting source predictions, check:
