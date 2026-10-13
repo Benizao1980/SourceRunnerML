@@ -246,7 +246,20 @@ def main():
 
     train = train[train[args.source_col].isin(keep_sources)].copy()
     if args.max_train_rows and len(train) > args.max_train_rows:
-        train = train.groupby(args.source_col, group_keys=False).apply(lambda x: x.sample(min(len(x), max(1, args.max_train_rows // len(keep_sources))), random_state=args.random_seed)).reset_index(drop=True)
+        # Sampling within each source must preserve the source-label column.
+        # pandas >=3 no longer includes grouping columns in groupby.apply().
+        n_groups = max(1, train[args.source_col].nunique())
+        per_group_limit = max(1, args.max_train_rows // n_groups)
+        train = pd.concat(
+            [
+                group.sample(
+                    n=min(len(group), per_group_limit),
+                    random_state=args.random_seed,
+                )
+                for _, group in train.groupby(args.source_col, sort=False)
+            ],
+            ignore_index=True,
+        )
     if args.max_predict_rows and len(pred) > args.max_predict_rows:
         pred = pred.sample(args.max_predict_rows, random_state=args.random_seed).reset_index(drop=True)
 
