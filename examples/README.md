@@ -35,6 +35,7 @@ It documents study-specific choices that are **stricter than the generic wrapper
 - size-matched controls and learning curves;
 - human attribution and nearest-source sensitivity analyses;
 - PIRATE/IQ-TREE phylogenetic reconstruction;
+- a redistributable aggregate benchmark TSV with a small standard-library arithmetic check (not a model rerun);
 - the plan for the *C. coli* extension.
 
 Use this folder when reproducing or extending that study. Do not treat its frozen model settings as universal SourceRunnerML defaults.
