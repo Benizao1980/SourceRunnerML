@@ -55,7 +55,7 @@ jobs:
             --source_col source \
             --keep_sources Poultry,Ruminant,Pig \
             --loci_prefix CAMP \
-            --models random_forest \
+            --models random_forest,logreg \
             --cv_folds 2 \
             --bootstrap 2 \
             --burn_in 0 \
@@ -70,6 +70,10 @@ jobs:
           from pathlib import Path
           matches = glob.glob("toy_results/ci_toy_*/model_comparison_cv_summary.tsv")
           assert len(matches) == 1, matches
+          import csv
+          with open(matches[0], newline="") as handle:
+              rows = list(csv.DictReader(handle, delimiter="\t"))
+          assert {r["model"] for r in rows if r["status"] == "ok"} >= {"random_forest", "logreg"}, rows
           out = Path(matches[0]).parent
           for expected in ["run_setup.json", "bootstrap_oob_metrics_all_replicates.tsv",
                            "human_predictions_bootstrap_ensemble.tsv", "prediction_probability_means.tsv"]:
