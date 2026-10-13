@@ -4,6 +4,8 @@ This directory is a **planning and feasibility scaffold** for adapting SourceRun
 
 > **Current status:** no Salmonella performance results are claimed. The pilot should not be treated as a validated Salmonella source-attribution model.
 
+For the separate, study-specific Erika Austhof/K01 Salmonella design (EnteroBase + hierCC + geography + FoodNet context), see **[`../salmonella_erika_k01/`](../salmonella_erika_k01/)**. This directory remains a generic organism-adaptation feasibility scaffold.
+
 ## Why this example exists
 
 The current stable SourceRunnerML workflow was developed primarily with Campylobacter data. The Salmonella pilot is intended to test, transparently and on a small public/redistributable dataset, what needs to change before the framework is used for a larger Salmonella analysis.
