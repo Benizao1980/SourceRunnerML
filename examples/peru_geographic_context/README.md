@@ -224,6 +224,16 @@ Final alignment / tree facts:
 
 The 23 excluded IDs are documented in the analysis output and should be preserved alongside the tree. IQ-TREE may collapse exact duplicate sequences internally during optimisation and reattach them to the final tree; the manuscript/tree-tip count remains 2,194.
 
+## Inspect documented benchmark counts
+
+The redistributable aggregate [`results/cjejuni_known_source_benchmark.tsv`](results/cjejuni_known_source_benchmark.tsv) can be checked using:
+
+~~~bash
+python examples/peru_geographic_context/scripts/verify_benchmark_summary.py
+~~~
+
+This verifies class totals and balanced-accuracy arithmetic **only**. No raw genomes, isolate-level predictions or frozen model scripts are supplied; this is not a full computational reproduction.
+
 ## Reproducing the study
 
 See [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md) for a full start-to-finish protocol, including:
