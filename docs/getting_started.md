@@ -138,6 +138,8 @@ python scripts/sourcerunner_full_validation.py \
 
 The wrapper will attempt each requested classifier. If an optional package is unavailable, that model can fail while the remaining models continue; always inspect `model_comparison_cv_summary.tsv` to confirm what actually ran.
 
+Optional advanced use: set `--tuning_config examples/tuning.example.json --inner_cv_folds 3` to tune supported classifier parameters **within each training partition**. See [tuning.md](tuning.md). This is computationally more expensive and is not necessary for a first run.
+
 ## 6. Read the outputs in this order
 
 ### A. `run_setup.txt` / `run_setup.json`
