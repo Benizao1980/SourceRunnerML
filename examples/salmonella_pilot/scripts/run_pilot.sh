@@ -3,9 +3,8 @@ set -euo pipefail
 
 # Salmonella worked-example runner scaffold.
 #
-# This is intentionally guarded: the general v1.0 wrapper still selects loci
-# using one common prefix. Do not run a Salmonella analysis until the selected
-# export has a documented compatible prefix, or issue #5 has been implemented.
+# This is intentionally guarded: the locus scheme must be audited and explicitly supplied.
+# This is a feasibility scaffold rather than a validated Salmonella benchmark.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PILOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -16,25 +15,28 @@ PREDICT_FILE="${2:-$PILOT_DIR/data/SALMONELLA_PILOT.predict.tsv}"
 OUTDIR="${3:-$PILOT_DIR/results}"
 LOCI_PREFIX="${4:-${SALMONELLA_LOCI_PREFIX:-}}"
 
-if [[ -z "$LOCI_PREFIX" ]]; then
-  cat >&2 <<'EOF'
-STOP: Salmonella pilot locus selection has not been fixed yet.
+LOCI_FILE="${5:-${SALMONELLA_LOCI_FILE:-}}"
 
-The current full-validation wrapper requires a common --loci_prefix.
-Either:
-  1. implement/generalise locus selection (GitHub issue #5), or
-  2. if the curated pilot export genuinely has one shared locus prefix,
-     pass that prefix as argument 4 or SALMONELLA_LOCI_PREFIX.
-
-Example (only if scientifically/data-format appropriate):
-  bash examples/salmonella_pilot/scripts/run_pilot.sh TRAIN.tsv PREDICT.tsv results LOCUS_PREFIX
-EOF
+if [[ -z "$LOCI_FILE" && -z "$LOCI_PREFIX" ]]; then
+  echo "STOP: supply a verified locus file as argument 5, or a verified prefix as argument 4." >&2
+  echo "Example: bash examples/salmonella_pilot/scripts/run_pilot.sh TRAIN.tsv PREDICT.tsv results '' loci.txt" >&2
   exit 2
 fi
-
 [[ -s "$TRAIN_FILE" ]] || { echo "Missing training file: $TRAIN_FILE" >&2; exit 1; }
 [[ -s "$PREDICT_FILE" ]] || { echo "Missing prediction file: $PREDICT_FILE" >&2; exit 1; }
 
+loci_args=()
+if [[ -n "$LOCI_FILE" ]]; then
+  [[ -s "$LOCI_FILE" ]] || { echo "Missing locus list: $LOCI_FILE" >&2; exit 1; }
+  loci_args=(--loci_file "$LOCI_FILE")
+else
+  loci_args=(--loci_prefix "$LOCI_PREFIX")
+fi
+
+python "$REPO_ROOT/scripts/source_runner_preflight.py" \
+  --train "$TRAIN_FILE" --predict "$PREDICT_FILE" \
+  --source_col harmonized_source --min_source_size 20 \
+  "${loci_args[@]}" --outdir "$OUTDIR/preflight"
 python "$REPO_ROOT/scripts/sourcerunner_full_validation.py" \
   --train_file "$TRAIN_FILE" \
   --predict_file "$PREDICT_FILE" \
@@ -42,7 +44,7 @@ python "$REPO_ROOT/scripts/sourcerunner_full_validation.py" \
   --run_name salmonella_pilot \
   --source_col harmonized_source \
   --keep_sources Poultry,Ruminant,"Wild bird" \
-  --loci_prefix "$LOCI_PREFIX" \
+  "${loci_args[@]}" \
   --models random_forest,xgboost,logreg \
   --cv_folds 5 \
   --bootstrap 25 \

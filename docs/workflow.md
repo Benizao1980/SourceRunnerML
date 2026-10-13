@@ -26,7 +26,7 @@ Each row is an isolate and each selected cgMLST locus is a model feature. The tr
 
 For the current Campylobacter full-validation wrapper, loci are selected using a common prefix, normally `CAMP`.
 
-This is convenient for PubMLST Campylobacter exports but is not sufficiently general for every organism. Generalising locus selection beyond a common prefix is an active development item (issue #5).
+For other organisms, use an exact `--loci_file` or validated regex `--loci_pattern`. File mode is strict about training/query column equality and takes precedence over pattern and the legacy `--loci_prefix` default.
 
 ## 3. Candidate source set
 
@@ -70,12 +70,12 @@ For geographic comparisons, explicitly audit whether isolates from the intended 
 The recommended full-validation wrapper:
 
 1. restricts the training data to `--keep_sources`;
-2. finds loci shared between training and prediction tables using `--loci_prefix`;
+2. selects shared loci with `--loci_file` (strict), `--loci_pattern` (regex), or `--loci_prefix` (default `CAMP`);
 3. removes loci whose training-set missingness exceeds `--missingness`;
-4. fits a most-frequent-value imputer on the training data;
-5. applies the same retained loci and imputer to the prediction data.
+4. fits a most-frequent-value imputer **within each training partition** for cross-validation or OOB evaluation;
+5. for final prediction, fits on the full labelled source training set and applies that fitted transform to the prediction data.
 
-**Current limitation:** although the prediction-target table is not used to fit the imputer, the v1.0 general wrapper selects loci by missingness and fits the imputer on the *entire labelled reference table before CV and OOB evaluation*. Thus held-out observations influence preprocessing. This is potential evaluation leakage, and the resulting CV/OOB metrics should **not** be presented as strictly leakage-free or definitive. A future implementation must fit filtering/imputation separately within each CV training fold or bootstrap training replicate. The frozen Peru workflow specifies fold-contained preprocessing.
+**Updated preprocessing:** the wrapper now performs missingness filtering and most-frequent allele imputation separately for the training rows of each CV fold and OOB/bootstrap replicate. It saves per-fold locus manifests and the final retained-locus list. This corrects the preprocessing leakage raised in [issue #13](https://github.com/Benizao1980/SourceRunnerML/issues/13). It does **not** control genomic-lineage, temporal or geographic overlap, or guarantee calibration; the frozen Peru workflow is a separate, stricter analytical design.
 
 In a correctly implemented evaluation, preprocessing must be defined only from the relevant training partition, not from held-out validation or prediction targets.
 

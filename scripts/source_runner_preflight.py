@@ -25,6 +25,8 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 
+from sourcerunner_features import select_shared_loci
+
 DEFAULT_MLST_LOCI = ["aspA", "glnA", "gltA", "glyA", "pgm", "tkt", "uncA"]
 
 
@@ -99,7 +101,9 @@ def main():
     ap.add_argument("--source_col", default="reduced")
     ap.add_argument("--id_col", default="id")
     ap.add_argument("--loci", default=",".join(DEFAULT_MLST_LOCI), help="Comma-separated locus columns")
-    ap.add_argument("--loci_pattern", default="", help="Regex for locus columns; overrides --loci if supplied")
+    ap.add_argument("--loci_pattern", default="", help="Regex for locus columns; overrides legacy --loci")
+    ap.add_argument("--loci_prefix", default="", help="Locus prefix; overrides legacy --loci")
+    ap.add_argument("--loci_file", default="", help="One locus per line; overrides regex/prefix and requires all named loci in both tables")
     ap.add_argument("--min_source_size", type=int, default=100)
     ap.add_argument("--exclude_sources", default="Missing", help="Comma-separated source labels to remove from TRAINING only")
     ap.add_argument("--outdir", default="sourcerunner_preflight")
@@ -119,9 +123,14 @@ def main():
     else:
         train_clean = train.copy()
 
-    loci_train = select_loci(train_clean, args.loci if not args.loci_pattern else "", args.loci_pattern)
-    loci_pred = select_loci(pred, args.loci if not args.loci_pattern else "", args.loci_pattern)
-    shared_loci = [l for l in loci_train if l in loci_pred]
+    try:
+        shared_loci, selection_method = select_shared_loci(
+            train_clean, pred, loci_file=args.loci_file,
+            loci_pattern=args.loci_pattern, loci_prefix=args.loci_prefix,
+            loci=args.loci,
+        )
+    except (ValueError, OSError) as exc:
+        raise SystemExit(f"Preflight locus selection failed: {exc}") from exc
 
     report = {
         "inputs": {
@@ -131,6 +140,7 @@ def main():
             "predict_detected_delimiter": pred_delim,
         },
         "settings": vars(args),
+        "locus_selection_method": selection_method,
         "excluded_training_sources": exclude,
         "shared_columns": int(len(set(train_clean.columns).intersection(pred.columns))),
         "columns_only_in_train": sorted(set(train_clean.columns) - set(pred.columns)),
@@ -165,6 +175,7 @@ def main():
     if report["problems"]:
         report["status"] = "FAIL"
 
+    (outdir / "shared_loci_selected.txt").write_text("\n".join(shared_loci) + "\n")
     report_json = outdir / "source_runner_preflight_report.json"
     report_txt = outdir / "source_runner_preflight_report.txt"
     with report_json.open("w") as f:

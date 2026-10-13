@@ -23,9 +23,9 @@ It is **not** the final K01 training/reference dataset or final source-attributi
 
 ## Important software limitation before running
 
-The general v1.0 full-validation wrapper currently selects genomic loci using one common `--loci_prefix`. This works for Campylobacter `CAMP...` loci but may not match a Salmonella/EnteroBase export cleanly.
+The full-validation wrapper now supports **exact `--loci_file` selection** (preferred for Salmonella/EnteroBase) as well as `--loci_pattern` and the older `--loci_prefix`.
 
-General locus selection is therefore tracked as **issue #5**. The preferred long-term solution is an explicit, reproducible feature-selection mechanism (for example a locus-list file, range or documented pattern) shared by preflight and full validation.
+Use original EnteroBase cgMLST identifiers in a verified one-locus-per-line text file; this exact mode is shared by preflight and full validation and fails rather than silently dropping missing loci. The included runner accepts the file as argument 5 (argument 4 left blank), or a scientifically verified common prefix as argument 4.
 
 The included [`scripts/run_pilot.sh`](scripts/run_pilot.sh) is intentionally guarded: it will stop unless a locus prefix is supplied explicitly. That prevents the placeholder example from silently running with the wrong genomic columns.
 
@@ -64,7 +64,7 @@ Do not commit patient-identifiable, restricted or large raw datasets to this rep
 
 1. **Choose the public dataset and confirm redistribution/access terms.**
 2. **Inspect source metadata before defining classes.** Use [`config/source_harmonization.example.tsv`](config/source_harmonization.example.tsv) only as a template, not as a validated universal mapping.
-3. **Resolve/define Salmonella locus selection.** Prefer implementing issue #5; only use a common prefix if the selected export genuinely supports one.
+3. **Resolve/define Salmonella locus selection.** Use the original organism-specific cgMLST locus names in an audited `--loci_file`; do not silently re-label features or use `CAMP` for Salmonella.
 4. **Run preflight QC.** Quantify source counts, duplicate IDs, shared loci and missingness.
 5. **Run a very small smoke test.** Start with random forest and logistic regression before scaling.
 6. **Compare baseline models.** Add XGBoost when the input and environment are stable.

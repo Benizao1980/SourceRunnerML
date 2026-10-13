@@ -46,7 +46,7 @@ For most users, the supported path is:
 5. **Optionally enrich/plot predictions** with `scripts/sourcerunner_prediction_postprocess.py`.
 6. For publication analyses, add validation appropriate to the biology (for example lineage-blocked or geographic holdouts).
 
-**Validation caveat:** the general v1.0 wrapper currently filters loci and fits its missing-value imputer on the complete training table *before* splitting into CV/OOB subsets. These metrics may be optimistic; do not present them as leakage-free validation. See the [tutorial](docs/tutorial.md#8-critical-scientific-cautions). The wrapper uses ordinary stratified cross-validation. See [issue #13](https://github.com/Benizao1980/SourceRunnerML/issues/13). The Peru manuscript study uses a separate, frozen **lineage-blocked** design documented in its worked-study directory; do not assume the generic wrapper reproduces that study automatically.
+**Validation:** the general wrapper now fits locus filtering and imputation independently within each CV fold and bootstrap/OOB training partition (see [validation tests](tests/test_validation_features.py)). It still uses ordinary stratified CV, which can be optimistic when closely related lineages cross folds; grouped, geographic and temporal validation remain study-specific (see the [tutorial](docs/tutorial.md#8-critical-scientific-cautions)). The Peru manuscript study uses a separate, frozen **lineage-blocked** design documented in its worked-study directory; do not assume the generic wrapper reproduces that study automatically.
 
 ## Install
 
@@ -79,7 +79,7 @@ H01   12          7           104         ...
 H02   8           4           55          ...
 ```
 
-The training file needs a source-label column (`--source_col`). The current Campylobacter full-validation wrapper identifies cgMLST loci using a common prefix (`--loci_prefix`, default `CAMP`). Generalising locus selection beyond a common prefix is tracked in issue #5.
+The training file needs a source-label column (`--source_col`). Select cgMLST loci with a verified `--loci_file` (strict one-name-per-line list), `--loci_pattern` (regex), or `--loci_prefix` (default `CAMP` for backwards compatibility). Explicit file mode takes precedence over regex, which takes precedence over prefix. Preflight and full validation share these rules; see [getting started](docs/getting_started.md).
 
 ## Quick debug run
 
@@ -177,7 +177,7 @@ See [`docs/workflow.md`](docs/workflow.md) for interpretation guidance and [`doc
 
 SourceRunnerML v1.0.0 is active research software. Current priorities are tracked as focused GitHub issues, particularly:
 
-- generalising locus selection beyond a shared prefix (issue #5);
+- monitoring performance of organism-specific locus selection (issue #5, implemented in the generic wrapper);
 - completing the Peru *C. coli* extension and deciding its validation design (issue #11);
 - optional broader hyperparameter tuning (issue #4).
 

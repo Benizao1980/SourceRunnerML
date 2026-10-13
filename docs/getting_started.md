@@ -201,7 +201,7 @@ This can enrich prediction tables with available metadata and generate compact s
 
 ## 8. Before treating a result as publication-grade
 
-**Caution:** the current general wrapper filters loci and imputes missing values on the full reference set before cross-validation/bootstrap OOB evaluations. Until these are fitted within every held-out training partition, those metrics should be considered exploratory and potentially optimistic. See [tutorial.md](tutorial.md#8-critical-scientific-cautions) and [issue #13](https://github.com/Benizao1980/SourceRunnerML/issues/13).
+**Current validation behaviour:** the wrapper now fits missingness filtering and imputation separately in each CV training fold and bootstrap in-bag sample (regression tests in `tests/test_validation_features.py`). Ordinary stratified CV **still permits closely related lineages in separate folds**; for scientific generalisation add a grouped/geographic external benchmark. See [tutorial.md](tutorial.md#8-critical-scientific-cautions).
 
 The standard wrapper uses ordinary stratified cross-validation. That is useful but may be optimistic when closely related isolates occur across training and validation folds.
 
@@ -222,7 +222,7 @@ The Peru geographic-context study shows one manuscript-scale implementation of l
 
 The training and prediction tables do not share columns beginning with the selected `--loci_prefix`, or your organism uses a different locus naming scheme.
 
-For Campylobacter, check that both files contain the full `CAMP...` cgMLST columns. General locus selection is being extended beyond a common prefix; see issue #5.
+For Campylobacter, check both inputs contain the intended `CAMP...` loci. For EnteroBase/Salmonella or another scheme, prefer a verified `--loci_file` or use `--loci_pattern`. Locus selection is now shared across preflight and the main wrapper; see the example below.
 
 ### Source class disappears
 
@@ -240,7 +240,22 @@ Confidence alone is not proof of correctness. Check known-source validation, ref
 
 Use the debug settings first, then scale bootstrap replicates/models/CPUs only after the input and output structure are confirmed.
 
-## 10. Which example should I use?
+## 10. Working with Salmonella or another cgMLST scheme
+
+Prepare `loci.txt` as a UTF-8 text file with **one exact locus column name per line**, optionally headed `locus`. Each locus must exist in *both* the source-labelled and prediction matrices. Do not include metadata columns. From the repository root:
+
+```bash
+python scripts/source_runner_preflight.py --train TRAIN.tsv --predict PREDICT.tsv \
+  --source_col source --loci_file loci.txt --outdir preflight
+python scripts/sourcerunner_full_validation.py --train_file TRAIN.tsv --predict_file PREDICT.tsv \
+  --source_col source --keep_sources Poultry,Ruminant --loci_file loci.txt \
+  --models random_forest,logreg --cv_folds 3 --bootstrap 5 --burn_in 1 \
+  --pred_bootstrap 3 --cpus 2 --output_dir output --run_name pilot
+```
+
+Precedence is file > regex (`--loci_pattern`) > prefix (`--loci_prefix`, default `CAMP`). The full run writes `shared_loci_selected.txt`, `retained_loci_final.txt` and fold locus manifests alongside `run_setup.json`. Generic standard stratified CV is still a feasibility baseline; it is not a Salmonella lineage-aware publication benchmark.
+
+## 11. Which example should I use?
 
 - **General Campylobacter use:** [`../examples/example_commands.md`](../examples/example_commands.md)
 - **Detailed manuscript reproducibility:** [`../examples/peru_geographic_context/`](../examples/peru_geographic_context/)

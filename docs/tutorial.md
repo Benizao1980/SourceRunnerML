@@ -123,7 +123,7 @@ The total probability across the candidate classes should be approximately 1.00 
 
 - **Not an external test.** A toy run is an operational check, not validation for real-world attribution.
 - **Current wrapper uses ordinary stratified CV.** Closely related isolates can be split across folds. For outbreak-prone or clonal taxa, add lineage-blocked CV, time/geography holdouts and external validation.
-- **Preprocessing caveat (current v1 wrapper):** it fits the imputer and missingness filter before splitting for CV and bootstrap/OOB. This can leak information from held-out rows into preprocessing and make validation optimistic (see [issue #13](https://github.com/Benizao1980/SourceRunnerML/issues/13)). Do **not** claim fully leakage-safe CV/OOB from this wrapper until fold-contained preprocessing is implemented and verified.
+- **Preprocessing:** the wrapper now fits its locus-missingness filter and imputer *within each CV training fold and bootstrap in-bag subset*, without using held-out rows in those transformations (regression-tested under `tests/test_validation_features.py`). This fixes the preprocessing issue described in [#13](https://github.com/Benizao1980/SourceRunnerML/issues/13), but **does not** prevent lineage/geographic leakage from ordinary stratified CV.
 - **Allele numbering is nominal.** Numeric classifiers currently see allele IDs as numbers. Especially for logistic regression, numeric ordering should not be misread as biological distance; test alternative representations/sensitivity.
 - **Class imbalance and reference bias matter.** Look at each source's recall, balanced accuracy, and sensitivity to panel composition.
 - **Labels are conditional on candidate classes.** An unrepresented reservoir does not have its own output probability.
@@ -133,7 +133,7 @@ The total probability across the candidate classes should be approximately 1.00 
 
 Prepare matching cgMLST tables using a consistent allele scheme; exclude leakage and biological duplicates; preserve stable isolate IDs, source, geography, year and lineage metadata. Run preflight. Then validate source labels and sampling coverage **before** tuning classifiers.
 
-For a real manuscript example of why lineage structure and geography matter, use [the Peru study](../examples/peru_geographic_context/START_HERE.md). For extending the framework to Salmonella, use [the general pilot](../examples/salmonella_pilot/) or [the Erika collaboration strand](../examples/salmonella_erika_k01/).
+For new organisms, use `--loci_file path/to/verified_loci.txt` to select *exactly* the stated cgMLST features across the train and prediction table; file > regex > prefix. These should refer to one documented cgMLST allele scheme. For a real manuscript example of why lineage structure and geography matter, use [the Peru study](../examples/peru_geographic_context/START_HERE.md). For extending the framework to Salmonella, use [the general pilot](../examples/salmonella_pilot/) or [the Erika collaboration strand](../examples/salmonella_erika_k01/).
 
 ## 10. Exercises
 
