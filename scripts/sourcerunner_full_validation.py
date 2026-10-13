@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Full SourceRunner-style validation and prediction wrapper for C. coli cgMLST.
+General SourceRunnerML source attribution, validation and prediction wrapper.
 
 What this adds beyond the smoke-test SourceRunner run:
   1. restricts training to chosen source classes;
   2. compares multiple ML models by stratified cross-validation;
-  3. performs proper bootstrap/OOB validation by retraining replicate models;
+  3. performs fold-contained preprocessing and bootstrap/OOB validation;
   4. averages human predictions across independently trained bootstrap models;
   5. writes uncertainty summaries, per-class probabilities, CV reports, confusion matrices,
      and source-attribution summary tables.
 
-This script expects SourceRunner-ready TSVs with CAMP cgMLST loci.
+This script expects SourceRunner-ready TSVs with a common genomic allele scheme.
+The default CAMP locus prefix is retained for backwards compatibility.
 """
 
 __version__ = "1.0.0"
@@ -30,9 +31,9 @@ import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 
-from sklearn.base import clone
+from sklearn.pipeline import Pipeline
+from sourcerunner_features import AllelePreprocessor, select_shared_loci
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
@@ -41,7 +42,7 @@ from sklearn.metrics import (
     confusion_matrix,
     f1_score,
 )
-from sklearn.model_selection import StratifiedKFold, cross_val_predict
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 
 warnings.filterwarnings("ignore", category=pd.errors.DtypeWarning)
@@ -49,14 +50,16 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Full C. coli cgMLST SourceRunner validation wrapper")
+    p = argparse.ArgumentParser(description="SourceRunnerML multi-source allele-profile validation wrapper")
     p.add_argument("--train_file", required=True)
     p.add_argument("--predict_file", required=True)
     p.add_argument("--output_dir", default="sourcerunner_coli_cgmlst_full_outputs")
     p.add_argument("--run_name", default="coli_cgmlst_three_source_full")
     p.add_argument("--source_col", default="reduced")
     p.add_argument("--keep_sources", default="Poultry,Ruminant,Pig")
-    p.add_argument("--loci_prefix", default="CAMP")
+    p.add_argument("--loci_prefix", default="CAMP", help="Legacy default; overridden by --loci_pattern or --loci_file")
+    p.add_argument("--loci_pattern", default="", help="Regex matched at beginning of locus column name")
+    p.add_argument("--loci_file", default="", help="One locus name per line; requires exact columns in train and prediction tables")
     p.add_argument("--missingness", type=float, default=0.20)
     p.add_argument("--cv_folds", type=int, default=5)
     p.add_argument("--models", default="random_forest,xgboost,logreg,lightgbm,catboost")
@@ -149,6 +152,13 @@ def get_model(name: str, n_jobs: int, random_state: int):
     raise ValueError(f"Unknown model: {name}")
 
 
+def make_pipeline(model_name, cpus, seed, missingness):
+    return Pipeline([
+        ("alleles", AllelePreprocessor(missingness=missingness)),
+        ("classifier", get_model(model_name, n_jobs=cpus, random_state=seed)),
+    ])
+
+
 def metric_dict(y_true, y_pred) -> Dict[str, float]:
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
@@ -175,21 +185,38 @@ def write_report_json_and_txt(outdir: Path, stem: str, payload: dict):
 
 def cross_validate_model(model_name: str, X: pd.DataFrame, y: np.ndarray, labels: List[str], args: argparse.Namespace, outdir: Path):
     start = time.time()
-    model = get_model(model_name, n_jobs=args.cpus, random_state=args.random_seed)
     cv = StratifiedKFold(n_splits=args.cv_folds, shuffle=True, random_state=args.random_seed)
-    # Avoid nested oversubscription: model itself uses args.cpus, cross_val_predict uses one outer job.
-    y_pred = cross_val_predict(model, X, y, cv=cv, n_jobs=1)
+    y_pred = np.full(len(y), -1, dtype=int)
+    fold_records = []
+    for fold, (tr, te) in enumerate(cv.split(X, y)):
+        model = make_pipeline(model_name, args.cpus, args.random_seed, args.missingness)
+        model.fit(X.iloc[tr], y[tr])
+        y_pred[te] = model.predict(X.iloc[te])
+        fold_records.append({
+            "fold": fold,
+            "train_n": len(tr),
+            "test_n": len(te),
+            "loci_retained": len(model.named_steps["alleles"].retained_loci_),
+            "loci": ",".join(model.named_steps["alleles"].retained_loci_),
+        })
+    if np.any(y_pred < 0):
+        raise ValueError("Some CV isolates were not evaluated")
+    pd.DataFrame(fold_records).to_csv(
+        outdir / f"cv_fold_retained_loci__{model_name}.tsv", sep="\t", index=False
+    )
     metrics = metric_dict(y, y_pred)
     cm = confusion_matrix(y, y_pred, labels=list(range(len(labels))))
-    rep = classification_report(y, y_pred, labels=list(range(len(labels))), target_names=labels, output_dict=True, zero_division=0)
-    pd.DataFrame(cm, index=labels, columns=labels).to_csv(outdir / f"cv_confusion_matrix__{model_name}.tsv", sep="\t")
+    rep = classification_report(y, y_pred, labels=list(range(len(labels))),
+                                target_names=labels, output_dict=True, zero_division=0)
+    pd.DataFrame(cm, index=labels, columns=labels).to_csv(
+        outdir / f"cv_confusion_matrix__{model_name}.tsv", sep="\t"
+    )
     with open(outdir / f"cv_classification_report__{model_name}.json", "w") as fh:
         json.dump(rep, fh, indent=2)
     metrics["model"] = model_name
     metrics["seconds"] = round(time.time() - start, 2)
     metrics["status"] = "ok"
     return metrics
-
 
 def stratified_bootstrap_indices(y: np.ndarray, rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
     train_parts = []
@@ -207,20 +234,22 @@ def stratified_bootstrap_indices(y: np.ndarray, rng: np.random.Generator) -> Tup
     return train_idx, oob_idx
 
 
-def fit_bootstrap_replicate(rep: int, model_name: str, X: pd.DataFrame, y: np.ndarray, seed: int, cpus_per_model: int):
+def fit_bootstrap_replicate(rep: int, model_name: str, X: pd.DataFrame, y: np.ndarray,
+                            seed: int, cpus_per_model: int, missingness: float = 0.20):
     rng = np.random.default_rng(seed + rep)
     tr, te = stratified_bootstrap_indices(y, rng)
-    model = get_model(model_name, n_jobs=cpus_per_model, random_state=seed + rep)
+    model = make_pipeline(model_name, cpus_per_model, seed + rep, missingness)
     model.fit(X.iloc[tr], y[tr])
     if len(te) > 0:
         pred = model.predict(X.iloc[te])
         metrics = metric_dict(y[te], pred)
         metrics["oob_n"] = int(len(te))
     else:
-        metrics = {"accuracy": np.nan, "balanced_accuracy": np.nan, "macro_f1": np.nan, "weighted_f1": np.nan, "oob_n": 0}
+        metrics = {"accuracy": np.nan, "balanced_accuracy": np.nan, "macro_f1": np.nan,
+                   "weighted_f1": np.nan, "oob_n": 0}
     metrics["replicate"] = rep
+    metrics["loci_retained"] = len(model.named_steps["alleles"].retained_loci_)
     return metrics, model
-
 
 def entropy_from_probs(p: np.ndarray) -> np.ndarray:
     p2 = np.clip(p, 1e-12, 1.0)
@@ -263,22 +292,18 @@ def main():
     if args.max_predict_rows and len(pred) > args.max_predict_rows:
         pred = pred.sample(args.max_predict_rows, random_state=args.random_seed).reset_index(drop=True)
 
-    train_loci = [c for c in train.columns if c.startswith(args.loci_prefix)]
-    pred_loci = [c for c in pred.columns if c.startswith(args.loci_prefix)]
-    shared_loci = sorted(set(train_loci) & set(pred_loci))
-    if not shared_loci:
-        raise SystemExit("No shared CAMP loci detected")
+    try:
+        shared_loci, locus_method = select_shared_loci(
+            train, pred, loci_file=args.loci_file,
+            loci_pattern=args.loci_pattern, loci_prefix=args.loci_prefix,
+        )
+    except (ValueError, OSError) as exc:
+        raise SystemExit(str(exc)) from exc
 
     X_raw = normalise_cell_values(train, shared_loci)
     P_raw = normalise_cell_values(pred, shared_loci)
-    missing = X_raw.isna().mean()
-    loci = [c for c in shared_loci if missing[c] <= args.missingness]
-    X_raw = X_raw[loci]
-    P_raw = P_raw[loci]
-
-    imp = SimpleImputer(strategy="most_frequent")
-    X = pd.DataFrame(imp.fit_transform(X_raw), columns=loci, index=train.index).astype(float)
-    P = pd.DataFrame(imp.transform(P_raw), columns=loci, index=pred.index).astype(float)
+    # Do not fit locus filtering or the imputer here: every held-out fold
+    # or bootstrap OOB replicate must have its own training-only fit.
 
     le = LabelEncoder()
     y = le.fit_transform(train[args.source_col].astype(str))
@@ -293,7 +318,11 @@ def main():
         "prediction_rows": int(len(pred)),
         "training_source_counts": {str(k): int(v) for k, v in train[args.source_col].value_counts().items()},
         "shared_loci_before_missingness_filter": int(len(shared_loci)),
-        "loci_retained": int(len(loci)),
+        "loci_selected_before_missingness_filter": int(len(shared_loci)),
+        "locus_selection_method": locus_method,
+        "loci_file": args.loci_file,
+        "loci_pattern": args.loci_pattern,
+        "preprocessing": "train-partition-fitted CV and OOB; full training for final predictions",
         "loci_prefix": args.loci_prefix,
         "missingness_threshold": args.missingness,
         "models_requested": model_names,
@@ -304,15 +333,19 @@ def main():
         "min_confidence": args.min_confidence,
         "selection_metric": args.selection_metric,
     }
+    (outdir / "shared_loci_selected.txt").write_text("\n".join(shared_loci) + "\n")
     write_report_json_and_txt(outdir, "run_setup", setup)
     train.to_csv(outdir / "training_filtered_used.tsv", sep="\t", index=False)
+
+    if len(labels) < 2 or min(np.bincount(y)) < args.cv_folds:
+        raise SystemExit(f"Each source requires at least {args.cv_folds} training isolates for CV")
 
     # Model comparison by full out-of-fold CV.
     cv_rows = []
     for name in model_names:
         print(f"CV model: {name}", flush=True)
         try:
-            cv_rows.append(cross_validate_model(name, X, y, labels, args, outdir))
+            cv_rows.append(cross_validate_model(name, X_raw, y, labels, args, outdir))
         except Exception as e:
             cv_rows.append({"model": name, "status": "failed", "error": f"{type(e).__name__}: {e}"})
             print(f"  skipped/failed: {e}", flush=True)
@@ -333,7 +366,7 @@ def main():
     for i in range(args.bootstrap):
         if i == 0 or (i + 1) % 10 == 0 or (i + 1) == args.bootstrap:
             print(f"  bootstrap replicate {i + 1}/{args.bootstrap}", flush=True)
-        results.append(fit_bootstrap_replicate(i, best_name, X, y, args.random_seed, cpus_per_model))
+        results.append(fit_bootstrap_replicate(i, best_name, X_raw, y, args.random_seed, cpus_per_model, args.missingness))
     boot_metrics = [m for m, _ in results]
     boot_models = [m for _, m in results]
     boot_df = pd.DataFrame(boot_metrics)
@@ -342,11 +375,20 @@ def main():
     summary = post[["accuracy", "balanced_accuracy", "macro_f1", "weighted_f1", "oob_n"]].agg(["mean", "std", "min", "median", "max"]).T
     summary.to_csv(outdir / "bootstrap_oob_metrics_post_burnin_summary.tsv", sep="\t")
 
-    # Fit one final best model on all training data for reference and save it.
-    final_model = get_model(best_name, n_jobs=args.cpus, random_state=args.random_seed)
-    final_model.fit(X, y)
+    # Final prediction model may fit on all labelled training rows: no held-out scores are derived from it.
+    final_pipeline = make_pipeline(best_name, args.cpus, args.random_seed, args.missingness)
+    final_pipeline.fit(X_raw, y)
+    final_preprocessor = final_pipeline.named_steps["alleles"]
+    loci = list(final_preprocessor.retained_loci_)
+    (outdir / "retained_loci_final.txt").write_text("\n".join(loci) + "\n")
+    setup["loci_retained"] = len(loci)
+    write_report_json_and_txt(outdir, "run_setup", setup)
     with open(outdir / "final_model_fit_all_training.pkl", "wb") as fh:
-        pickle.dump({"model": final_model, "label_encoder": le, "loci": loci, "imputer": imp, "args": vars(args)}, fh)
+        # Preserve old dictionary keys for consumers that transform 'loci' with 'imputer'.
+        pickle.dump({"model": final_pipeline.named_steps["classifier"],
+                     "label_encoder": le, "loci": loci,
+                     "imputer": final_preprocessor.imputer_,
+                     "pipeline": final_pipeline, "args": vars(args)}, fh)
 
     # Prediction across independent bootstrap models after burn-in.
     pred_models = boot_models[args.burn_in:args.burn_in + args.pred_bootstrap]
@@ -356,9 +398,9 @@ def main():
     prob_stack = []
     call_stack = []
     for m in pred_models:
-        probs = m.predict_proba(P)
+        probs = m.predict_proba(P_raw)
         # Align probability columns to encoded class order if needed.
-        aligned = np.zeros((len(P), len(labels)), dtype=float)
+        aligned = np.zeros((len(P_raw), len(labels)), dtype=float)
         for j, cls in enumerate(m.classes_):
             aligned[:, int(cls)] = probs[:, j]
         prob_stack.append(aligned)
@@ -370,8 +412,8 @@ def main():
     pred_num = mean_probs.argmax(axis=1)
     pred_source = le.inverse_transform(pred_num)
     max_prob = mean_probs.max(axis=1)
-    max_prob_sd = sd_probs[np.arange(len(P)), pred_num]
-    consensus = np.array([(call_stack[:, i] == pred_num[i]).mean() for i in range(len(P))])
+    max_prob_sd = sd_probs[np.arange(len(P_raw)), pred_num]
+    consensus = np.array([(call_stack[:, i] == pred_num[i]).mean() for i in range(len(P_raw))])
     uncertainty_entropy = entropy_from_probs(mean_probs)
     pred_filtered = np.where(max_prob < args.min_confidence, "Uncertain", pred_source)
 
