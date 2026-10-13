@@ -32,6 +32,14 @@ Frozen known-source benchmark:
 
 These values are **documented outcomes of the prior analysis**, not outputs automatically reproduced by installing this repository.
 
+The underlying aggregate confusion counts are now in [`results/cjejuni_known_source_benchmark.tsv`](results/cjejuni_known_source_benchmark.tsv). To check their arithmetic without any private data, from the repository root run:
+
+~~~bash
+python examples/peru_geographic_context/scripts/verify_benchmark_summary.py
+~~~
+
+This is an **aggregate consistency check, not a model rerun**. See [`results/README.md`](results/README.md).
+
 ## What is actually needed to reproduce the paper?
 
 You need the source-labelled *C. jejuni* global and local allele matrices, the Peru human matrix, harmonised metadata, leakage-exclusion manifest, frozen genomic group/fold assignments, exact model versions and seeds, retained-locus manifest, plus the original study-specific scripts or a verified reimplementation. Large, non-redistributable inputs are intentionally absent from GitHub.
