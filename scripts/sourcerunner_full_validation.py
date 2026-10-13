@@ -423,7 +423,8 @@ def main():
         pickle.dump({"model": final_pipeline.named_steps["classifier"],
                      "label_encoder": le, "loci": loci,
                      "imputer": final_preprocessor.imputer_,
-                     "pipeline": final_pipeline, "args": vars(args)}, fh)
+                     "args": vars(args),
+                     "preprocessing_note": "Use loci in order and imputer.transform before model.predict_proba"}, fh)
 
     # Prediction across independent bootstrap models after burn-in.
     pred_models = boot_models[args.burn_in:args.burn_in + args.pred_bootstrap]

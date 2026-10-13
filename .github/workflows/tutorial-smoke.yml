@@ -92,7 +92,16 @@ jobs:
           for expected in ["run_setup.json", "bootstrap_oob_metrics_all_replicates.tsv",
                            "human_predictions_bootstrap_ensemble.tsv", "prediction_probability_means.tsv"]:
               assert (out / expected).is_file(), expected
-          print("All expected toy outputs exist.")
+          # Independent downstream loading must not require importing custom project modules.
+          import pickle, pandas as pd
+          with open(out / "final_model_fit_all_training.pkl", "rb") as handle:
+              fitted = pickle.load(handle)
+          assert {"model", "loci", "imputer", "label_encoder"} <= set(fitted)
+          raw = pd.read_csv("toy_data/predict.tsv", sep="\t")
+          alleles = raw[fitted["loci"]].apply(pd.to_numeric, errors="coerce")
+          probs = fitted["model"].predict_proba(fitted["imputer"].transform(alleles))
+          assert probs.shape[0] == len(raw)
+          print("All expected toy outputs exist; saved model is portable.")
           PY
 
       - name: Simulate an organism-specific locus list

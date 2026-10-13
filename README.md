@@ -181,9 +181,10 @@ See [`docs/workflow.md`](docs/workflow.md) for interpretation guidance and [`doc
 
 SourceRunnerML v1.0.0 is active research software. Current priorities are tracked as focused GitHub issues, particularly:
 
-- monitoring performance of organism-specific locus selection (issue #5, implemented in the generic wrapper);
-- completing the Peru *C. coli* extension and deciding its validation design (issue #11);
-- optional broader hyperparameter tuning (issue #4).
+- completing the Peru *C. coli* extension and deciding its validation design ([issue #11](https://github.com/Benizao1980/SourceRunnerML/issues/11));
+- comparing historical and corrected real-data validation, and evaluating nominal allele encodings ([issue #17](https://github.com/Benizao1980/SourceRunnerML/issues/17)).
+
+Fold-contained preprocessing and organism-specific locus selection are implemented ([PR #15](https://github.com/Benizao1980/SourceRunnerML/pull/15)); optional nested hyperparameter tuning is implemented ([PR #16](https://github.com/Benizao1980/SourceRunnerML/pull/16)).
 
 ## License
 
