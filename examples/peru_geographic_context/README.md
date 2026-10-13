@@ -1,5 +1,7 @@
 # Peru Campylobacter geographic-context source attribution
 
+**New readers:** begin with [`START_HERE.md`](START_HERE.md) for a quick scientific overview, expected inputs, validation cautions and what can/cannot be reproduced directly from a fresh clone.
+
 This directory documents the manuscript-scale analysis used to test how geographic composition of reference genomes affects cgMLST-based source attribution of *Campylobacter jejuni* in Peru, with a planned/ongoing extension to *C. coli*.
 
 The analysis is linked directly to **SourceRunnerML**, but it is intentionally documented as a **study-specific reproducibility profile**, because the production manuscript analysis used a frozen XGBoost ensemble and fixed lineage-blocked folds rather than every option exposed by the general-purpose wrapper.
