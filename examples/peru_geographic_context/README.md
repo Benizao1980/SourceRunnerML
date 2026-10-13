@@ -1,5 +1,7 @@
 # Peru Campylobacter geographic-context source attribution
 
+**New readers:** begin with [`START_HERE.md`](START_HERE.md) for a quick scientific overview, expected inputs, validation cautions and what can/cannot be reproduced directly from a fresh clone.
+
 This directory documents the manuscript-scale analysis used to test how geographic composition of reference genomes affects cgMLST-based source attribution of *Campylobacter jejuni* in Peru, with a planned/ongoing extension to *C. coli*.
 
 The analysis is linked directly to **SourceRunnerML**, but it is intentionally documented as a **study-specific reproducibility profile**, because the production manuscript analysis used a frozen XGBoost ensemble and fixed lineage-blocked folds rather than every option exposed by the general-purpose wrapper.
@@ -221,6 +223,16 @@ Final alignment / tree facts:
 - final tree taxa: **2,194**
 
 The 23 excluded IDs are documented in the analysis output and should be preserved alongside the tree. IQ-TREE may collapse exact duplicate sequences internally during optimisation and reattach them to the final tree; the manuscript/tree-tip count remains 2,194.
+
+## Inspect documented benchmark counts
+
+The redistributable aggregate [`results/cjejuni_known_source_benchmark.tsv`](results/cjejuni_known_source_benchmark.tsv) can be checked using:
+
+~~~bash
+python examples/peru_geographic_context/scripts/verify_benchmark_summary.py
+~~~
+
+This verifies class totals and balanced-accuracy arithmetic **only**. No raw genomes, isolate-level predictions or frozen model scripts are supplied; this is not a full computational reproduction.
 
 ## Reproducing the study
 

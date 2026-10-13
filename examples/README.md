@@ -6,6 +6,10 @@ If you are new to SourceRunnerML, start with [`../docs/getting_started.md`](../d
 
 ## What is here?
 
+### `toy_quickstart/`
+
+Reproducible synthetic cgMLST-like tables for the [guided tutorial](../docs/tutorial.md), with no genomic data download or access requirements. Educational only.
+
 ### `example_commands.md`
 
 Copy/paste templates for:
@@ -19,6 +23,8 @@ These use the **general v1.0 wrapper**.
 
 ### `peru_geographic_context/`
 
+[Start here](peru_geographic_context/START_HERE.md) for the reader map, required archival inputs and distinction between the frozen study and the generic wrapper.
+
 A manuscript-scale worked study of geographic reference-population effects in Peruvian *Campylobacter jejuni*.
 
 It documents study-specific choices that are **stricter than the generic wrapper defaults**, including:
@@ -29,6 +35,7 @@ It documents study-specific choices that are **stricter than the generic wrapper
 - size-matched controls and learning curves;
 - human attribution and nearest-source sensitivity analyses;
 - PIRATE/IQ-TREE phylogenetic reconstruction;
+- a redistributable aggregate benchmark TSV with a small standard-library arithmetic check (not a model rerun);
 - the plan for the *C. coli* extension.
 
 Use this folder when reproducing or extending that study. Do not treat its frozen model settings as universal SourceRunnerML defaults.
@@ -40,6 +47,10 @@ A planned feasibility example for adapting SourceRunnerML to Salmonella/EnteroBa
 It currently contains planning, source-harmonisation and runner scaffolding. **No Salmonella performance results are claimed yet.**
 
 The major software issue to resolve before a definitive Salmonella workflow is general locus selection beyond the Campylobacter-style common prefix (issue #5).
+
+### `salmonella_erika_k01/`
+
+A separate, prospective Erika Austhof/K01 *Salmonella* source-attribution study strand: EnteroBase cgMLST, hierCC/serotype-aware evaluation, states/years, and comparison with linked epidemiological data. **No private data or performance results are included.**
 
 ## Data policy
 

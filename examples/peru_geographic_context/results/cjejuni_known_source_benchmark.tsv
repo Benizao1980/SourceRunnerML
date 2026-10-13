@@ -1,0 +1,4 @@
+strategy	poultry_total	poultry_correct	poultry_to_ruminant	ruminant_total	ruminant_correct	ruminant_to_poultry	balanced_accuracy_reported	macro_f1_reported
+Non-Peru global	1076	1073	3	149	76	73	0.754	0.816
+Peru-local OOF	1076	1066	10	149	113	36	0.875	0.905
+Global + Peru-local OOF	1076	1069	7	149	118	31	0.893	0.922

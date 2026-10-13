@@ -1,0 +1,82 @@
+name: Tutorial smoke test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/tutorial.md"
+      - "examples/toy_quickstart/**"
+      - "scripts/sourcerunner_full_validation.py"
+      - "scripts/source_runner_preflight.py"
+      - "requirements-minimal.txt"
+      - "tests/test_toy_quickstart.py"
+      - ".github/workflows/tutorial-smoke.yml"
+  pull_request:
+    paths:
+      - "docs/tutorial.md"
+      - "examples/toy_quickstart/**"
+      - "scripts/sourcerunner_full_validation.py"
+      - "scripts/source_runner_preflight.py"
+      - "requirements-minimal.txt"
+      - "tests/test_toy_quickstart.py"
+      - ".github/workflows/tutorial-smoke.yml"
+
+jobs:
+  toy-workflow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal stack
+        run: python -m pip install -r requirements-minimal.txt
+      - name: Check synthetic table generator
+        run: python -m unittest discover -s tests -p 'test_toy_quickstart.py' -v
+      - name: Generate and inspect toy data
+        run: |
+          python examples/toy_quickstart/make_toy_data.py --outdir toy_data
+          python scripts/source_runner_preflight.py \
+            --train toy_data/train.tsv \
+            --predict toy_data/predict.tsv \
+            --source_col source \
+            --id_col id \
+            --min_source_size 20 \
+            --loci_pattern '^CAMP' \
+            --outdir toy_preflight
+      - name: Tiny end-to-end run
+        run: |
+          python scripts/sourcerunner_full_validation.py \
+            --train_file toy_data/train.tsv \
+            --predict_file toy_data/predict.tsv \
+            --output_dir toy_results \
+            --run_name ci_toy \
+            --source_col source \
+            --keep_sources Poultry,Ruminant,Pig \
+            --loci_prefix CAMP \
+            --models random_forest,logreg \
+            --cv_folds 2 \
+            --bootstrap 2 \
+            --burn_in 0 \
+            --pred_bootstrap 2 \
+            --max_train_rows 90 \
+            --max_predict_rows 12 \
+            --cpus 2
+      - name: Check expected output files
+        run: |
+          python - <<'PY'
+          import glob
+          from pathlib import Path
+          matches = glob.glob("toy_results/ci_toy_*/model_comparison_cv_summary.tsv")
+          assert len(matches) == 1, matches
+          import csv
+          with open(matches[0], newline="") as handle:
+              rows = list(csv.DictReader(handle, delimiter="\t"))
+          assert {r["model"] for r in rows if r["status"] == "ok"} >= {"random_forest", "logreg"}, rows
+          out = Path(matches[0]).parent
+          for expected in ["run_setup.json", "bootstrap_oob_metrics_all_replicates.tsv",
+                           "human_predictions_bootstrap_ensemble.tsv", "prediction_probability_means.tsv"]:
+              assert (out / expected).is_file(), expected
+          print("All expected toy outputs exist.")
+          PY

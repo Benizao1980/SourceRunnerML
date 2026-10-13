@@ -4,7 +4,9 @@ Use this directory as the documentation index.
 
 ## For new users
 
-Start with [`getting_started.md`](getting_started.md). It covers installation, input tables, preflight QC, a small debug run, the full-validation command, output interpretation and common failure modes.
+For a complete, runnable teaching example with simulated cgMLST tables, start with **[`tutorial.md`](tutorial.md)**.
+
+Then use [`getting_started.md`](getting_started.md). It covers installation, input tables, preflight QC, a small debug run, the full-validation command, output interpretation and common failure modes.
 
 ## For methods and interpretation
 
@@ -20,6 +22,9 @@ Worked studies live under [`../examples/`](../examples/), not in `docs/`, so tha
 
 - [`../examples/peru_geographic_context/`](../examples/peru_geographic_context/) — frozen manuscript-scale Peru analysis and reproducibility record.
 - [`../examples/salmonella_pilot/`](../examples/salmonella_pilot/) — planned Salmonella feasibility/adaptation scaffold; no Salmonella performance results are currently claimed.
+- [`../examples/salmonella_erika_k01/`](../examples/salmonella_erika_k01/) — distinct Erika Austhof/K01 Salmonella source-attribution study plan; no Salmonella performance results are claimed.
+- [`../examples/peru_geographic_context/START_HERE.md`](../examples/peru_geographic_context/START_HERE.md) — rapid orientation to the Peru dataset requirements and fixed analysis.
+- [`../examples/toy_quickstart/make_toy_data.py`](../examples/toy_quickstart/make_toy_data.py) — synthetic cgMLST-like dataset generator for the tutorial.
 
 ## Design principle
 

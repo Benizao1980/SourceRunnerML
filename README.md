@@ -10,12 +10,30 @@ The stable v1.0 workflow has been developed primarily with *Campylobacter jejuni
 
 | I want to… | Read / run |
 |---|---|
+| **try SourceRunnerML without obtaining any genomes** | **[`docs/tutorial.md`](docs/tutorial.md) — runnable synthetic-data lesson** |
 | install SourceRunnerML and run a first analysis | [`docs/getting_started.md`](docs/getting_started.md) |
 | understand the modelling workflow and validation | [`docs/workflow.md`](docs/workflow.md) |
 | look up terminology | [`docs/glossary.md`](docs/glossary.md) |
 | see copy/paste command templates | [`examples/example_commands.md`](examples/example_commands.md) |
-| reproduce the Peru geographic-context study | [`examples/peru_geographic_context/`](examples/peru_geographic_context/) |
+| understand the completed Peru geographic-context study | [`examples/peru_geographic_context/START_HERE.md`](examples/peru_geographic_context/START_HERE.md) |
 | follow the planned Salmonella feasibility work | [`examples/salmonella_pilot/`](examples/salmonella_pilot/) |
+| see the Salmonella / Erika Austhof K01 study strand | [`examples/salmonella_erika_k01/`](examples/salmonella_erika_k01/) |
+
+## First run: synthetic example
+
+If you are teaching or evaluating the software, start **without private data**. This is a simulated input/output demonstration, **not a biological benchmark**.
+
+```bash
+git clone https://github.com/Benizao1980/SourceRunnerML.git
+cd SourceRunnerML
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-minimal.txt
+python examples/toy_quickstart/make_toy_data.py --outdir toy_data
+python scripts/source_runner_preflight.py --train toy_data/train.tsv --predict toy_data/predict.tsv --source_col source --loci_pattern '^CAMP' --min_source_size 20 --outdir toy_preflight
+```
+
+Next, use the **[guided tutorial](docs/tutorial.md)** for a short model-fitting command, source-attribution vocabulary, interpretation exercises, and validation warnings.
 
 ## Recommended workflow
 
@@ -28,7 +46,7 @@ For most users, the supported path is:
 5. **Optionally enrich/plot predictions** with `scripts/sourcerunner_prediction_postprocess.py`.
 6. For publication analyses, add validation appropriate to the biology (for example lineage-blocked or geographic holdouts).
 
-The general v1.0 wrapper uses ordinary stratified cross-validation. The Peru manuscript study uses a separate, frozen **lineage-blocked** design documented in its worked-study directory; do not assume the generic wrapper reproduces that study automatically.
+**Validation caveat:** the general v1.0 wrapper currently filters loci and fits its missing-value imputer on the complete training table *before* splitting into CV/OOB subsets. These metrics may be optimistic; do not present them as leakage-free validation. See the [tutorial](docs/tutorial.md#8-critical-scientific-cautions). The wrapper uses ordinary stratified cross-validation. See [issue #13](https://github.com/Benizao1980/SourceRunnerML/issues/13). The Peru manuscript study uses a separate, frozen **lineage-blocked** design documented in its worked-study directory; do not assume the generic wrapper reproduces that study automatically.
 
 ## Install
 
@@ -122,7 +140,9 @@ SourceRunnerML/
 ├── docs/                       # getting-started, concepts and terminology
 ├── examples/                   # command templates and worked studies
 │   ├── peru_geographic_context/
-│   └── salmonella_pilot/
+│   ├── salmonella_pilot/
+│   ├── salmonella_erika_k01/
+│   └── toy_quickstart/
 ├── tests/                      # lightweight smoke tests
 ├── requirements.txt
 └── README.md
@@ -136,6 +156,7 @@ The `examples/` directory deliberately separates **general software behaviour** 
 
 - **Peru geographic context**: a frozen manuscript-scale analysis with leakage auditing, fixed lineage-blocked folds, size-matched controls, human attribution, nearest-source validation and phylogenetic reconstruction.
 - **Salmonella pilot**: a planning/feasibility scaffold. It does not yet claim Salmonella performance results.
+- **Erika / K01 Salmonella**: a separate collaborative study design, including EnteroBase, hierCC, geography and independent epidemiological comparisons; no Salmonella results claimed.
 
 Full private genomic datasets and large derived outputs are not stored in this repository. Worked studies should contain redistributable data, aggregate results, or instructions for rebuilding inputs from their original sources.
 

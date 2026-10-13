@@ -75,13 +75,15 @@ The recommended full-validation wrapper:
 4. fits a most-frequent-value imputer on the training data;
 5. applies the same retained loci and imputer to the prediction data.
 
-Preprocessing must be defined from training/reference data rather than using information from held-out prediction targets.
+**Current limitation:** although the prediction-target table is not used to fit the imputer, the v1.0 general wrapper selects loci by missingness and fits the imputer on the *entire labelled reference table before CV and OOB evaluation*. Thus held-out observations influence preprocessing. This is potential evaluation leakage, and the resulting CV/OOB metrics should **not** be presented as strictly leakage-free or definitive. A future implementation must fit filtering/imputation separately within each CV training fold or bootstrap training replicate. The frozen Peru workflow specifies fold-contained preprocessing.
+
+In a correctly implemented evaluation, preprocessing must be defined only from the relevant training partition, not from held-out validation or prediction targets.
 
 Run `scripts/source_runner_preflight.py` before fitting the model to inspect IDs, source counts, shared loci and missingness.
 
 ## 6. Standard model comparison
 
-The full-validation wrapper can compare:
+The full-validation wrapper can compare (note that numeric cgMLST allele identifiers are **categorical IDs, not meaningful continuous distances**; examine encoding/model sensitivity, especially for logistic regression):
 
 - random forest;
 - logistic regression;

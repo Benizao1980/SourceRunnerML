@@ -2,6 +2,8 @@
 
 This guide is the shortest supported route from a source-labelled cgMLST table to a validated SourceRunnerML run.
 
+**New to SourceRunnerML?** Start with the [guided synthetic-data tutorial](tutorial.md), which creates its own example tables, runs preflight and model comparison, and explains the key terms without requiring access to genomes.
+
 If you only want the conceptual background, see [`workflow.md`](workflow.md). For terminology, see [`glossary.md`](glossary.md).
 
 ## 1. Install
@@ -15,7 +17,7 @@ pip install -r requirements.txt
 python tests/smoke_test_imports.py
 ```
 
-Use `requirements-minimal.txt` if you only need the base scientific Python stack and plan to run random forest / logistic regression. The full `requirements.txt` also installs XGBoost, LightGBM, CatBoost and additional plotting/explanation packages.
+Use `requirements-minimal.txt` if you only need the base scientific Python stack and plan to run random forest / logistic regression. When doing so, check the wrapper with `python scripts/sourcerunner_full_validation.py --help` **instead of** `tests/smoke_test_imports.py`, which loads legacy utilities that unconditionally import XGBoost, LightGBM and CatBoost. The full `requirements.txt` includes those classifiers and additional plotting/explanation packages.
 
 ## 2. Prepare the two input tables
 
@@ -199,6 +201,8 @@ This can enrich prediction tables with available metadata and generate compact s
 
 ## 8. Before treating a result as publication-grade
 
+**Caution:** the current general wrapper filters loci and imputes missing values on the full reference set before cross-validation/bootstrap OOB evaluations. Until these are fitted within every held-out training partition, those metrics should be considered exploratory and potentially optimistic. See [tutorial.md](tutorial.md#8-critical-scientific-cautions) and [issue #13](https://github.com/Benizao1980/SourceRunnerML/issues/13).
+
 The standard wrapper uses ordinary stratified cross-validation. That is useful but may be optimistic when closely related isolates occur across training and validation folds.
 
 For publication analyses, consider whether you also need:
@@ -241,3 +245,4 @@ Use the debug settings first, then scale bootstrap replicates/models/CPUs only a
 - **General Campylobacter use:** [`../examples/example_commands.md`](../examples/example_commands.md)
 - **Detailed manuscript reproducibility:** [`../examples/peru_geographic_context/`](../examples/peru_geographic_context/)
 - **Adapting to Salmonella:** [`../examples/salmonella_pilot/`](../examples/salmonella_pilot/)
+- **Erika K01 Salmonella study:** [`../examples/salmonella_erika_k01/`](../examples/salmonella_erika_k01/)
