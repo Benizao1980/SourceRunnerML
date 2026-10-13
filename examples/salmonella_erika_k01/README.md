@@ -50,9 +50,9 @@ Earlier project planning has discussed Colorado, New Mexico, Utah, Alabama, Tenn
 
 ## Phase B — make SourceRunnerML accept the export
 
-SourceRunnerML v1.0's full-validation wrapper expects a **single genomic-locus prefix**, currently CAMP by default; this is not a suitable assumption for arbitrary EnteroBase exports. Track and resolve [issue #5](https://github.com/Benizao1980/SourceRunnerML/issues/5) with an explicit locus list or verified prefix before running real Salmonella data.
+SourceRunnerML now supports a **verified exact `--loci_file`**, as well as a regex `--loci_pattern` or a prefix. This addresses the software selection problem in [issue #5](https://github.com/Benizao1980/SourceRunnerML/issues/5); the remaining work is to audit the real EnteroBase export and select a versioned scheme.
 
-Until then, the generic Salmonella [run_pilot.sh](../salmonella_pilot/scripts/run_pilot.sh) intentionally stops if no compatible locus prefix is supplied. **Do not rename columns blindly**: keep a stable mapping to the original Salmonella locus identifiers.
+The generic Salmonella [run_pilot.sh](../salmonella_pilot/scripts/run_pilot.sh) requires a verified locus file (argument 5) or prefix (argument 4), and runs preflight before modelling. **Do not rename columns blindly**: keep a stable mapping to original Salmonella locus identifiers.
 
 A preliminary input table would contain:
 
@@ -73,7 +73,7 @@ and the human prediction table would contain the same locus set plus permissible
 7. **Probabilities:** report class-specific recall, balanced accuracy, macro-F1, confusion, calibration curves and uncertainty; avoid presenting arbitrary thresholded probabilities as calibrated.
 8. **Independent check:** compare human probability distributions with linked FoodNet exposure variables, accounting for selection bias and uncertain self-reporting.
 
-**Important current limitation:** the standard full-validation wrapper currently performs preprocessing before stratified CV/bootstrap evaluation, making leakage possible. A publication analysis should use a verified fold-contained preprocessing pipeline and prespecified grouped folds. See [the tutorial warning](../../docs/tutorial.md#8-critical-scientific-cautions).
+**Important current limitation:** preprocessing is now fitted separately in each CV and bootstrap/OOB training partition; however, the standard validation still uses **isolate-stratified**, not hierCC-grouped, folds. A publication analysis requires prespecified grouped and external validation, representative references, and a probability-calibration assessment. See [the tutorial warning](../../docs/tutorial.md#8-critical-scientific-cautions).
 
 ## First practical deliverables
 
