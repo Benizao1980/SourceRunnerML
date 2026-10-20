@@ -52,7 +52,7 @@ def load_tuning_config(path, requested_models, factory):
 
 
 def fit_with_optional_tuning(pipeline, X, y, *, model_name, grids, metric,
-                             inner_folds, seed):
+                             inner_folds, seed, groups=None, collision_policy="error"):
     """Return fitted Pipeline and auditable tuning metadata.
 
     The caller has already withheld the evaluation rows. With tuning enabled,
@@ -70,12 +70,28 @@ def fit_with_optional_tuning(pipeline, X, y, *, model_name, grids, metric,
     k = min(int(inner_folds), int(min(counts)))
     if k < 2:
         raise ValueError("inner_folds must be at least 2")
+    inner_details = None
+    if groups is not None:
+        from sourcerunner_validation import grouped_splits, collision_audit, audit_training_transform
+        cv = grouped_splits(X, y, groups, int(inner_folds), seed)
+        inner_details = []
+        groups_array = np.asarray(groups)
+        for tr, te in cv:
+            raw = collision_audit(X.iloc[tr], X.iloc[te], collision_policy, 'inner raw profiles')
+            transformed = audit_training_transform(
+                X, tr, te, pipeline.named_steps['alleles'].missingness, collision_policy)
+            inner_details.append({'train_groups': sorted(set(groups_array[tr])),
+                                  'test_groups': sorted(set(groups_array[te])),
+                                  'collisions': [raw, transformed]})
+        k = int(inner_folds)
+    else:
+        cv = StratifiedKFold(n_splits=k, shuffle=True, random_state=seed)
     estimator_grid = {"classifier__" + key: values for key, values in grid.items()}
     search = GridSearchCV(
         estimator=pipeline,
         param_grid=estimator_grid,
         scoring=METRIC_NAMES[metric],
-        cv=StratifiedKFold(n_splits=k, shuffle=True, random_state=seed),
+        cv=cv,
         n_jobs=1,  # avoid inner/outer oversubscription; classifier may use its own CPU limit
         refit=True,
         error_score="raise",
@@ -89,4 +105,6 @@ def fit_with_optional_tuning(pipeline, X, y, *, model_name, grids, metric,
         "inner_folds": k,
         "inner_cv_score": float(search.best_score_),
         "candidates": len(search.cv_results_["params"]),
+        "inner_group_partitions": inner_details,
+        "inner_seed": seed,
     }

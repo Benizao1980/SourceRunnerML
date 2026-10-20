@@ -17,6 +17,7 @@ The default CAMP locus prefix is retained for backwards compatibility.
 __version__ = "1.0.0"
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -33,6 +34,8 @@ from joblib import Parallel, delayed
 
 from sklearn.pipeline import Pipeline
 from sourcerunner_features import AllelePreprocessor, select_shared_loci
+from sourcerunner_validation import (load_validation_config, prepare_grouped_validation,
+    audit_training_transform, ValidationDesignError)
 from sourcerunner_tuning import fit_with_optional_tuning, load_tuning_config
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -64,6 +67,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--missingness", type=float, default=0.20)
     p.add_argument("--tuning_config", default="", help="Optional JSON model->parameter list grids; disabled by default")
     p.add_argument("--inner_cv_folds", type=int, default=3, help="Training-only folds for optional nested tuning")
+    p.add_argument('--validation_config', default='', help='Optional grouped CV JSON; requires --cv_only')
+    p.add_argument('--cv_only', action='store_true', help='Write CV reports and stop before final/ensemble fitting')
     p.add_argument("--cv_folds", type=int, default=5)
     p.add_argument("--models", default="random_forest,xgboost,logreg,lightgbm,catboost")
     p.add_argument("--selection_metric", default="balanced_accuracy", choices=["balanced_accuracy", "macro_f1", "weighted_f1", "accuracy"])
@@ -186,19 +191,34 @@ def write_report_json_and_txt(outdir: Path, stem: str, payload: dict):
     (outdir / f"{stem}.txt").write_text("\n".join(lines) + "\n")
 
 
-def cross_validate_model(model_name: str, X: pd.DataFrame, y: np.ndarray, labels: List[str], args: argparse.Namespace, outdir: Path, grids=None):
+def cross_validate_model(model_name: str, X: pd.DataFrame, y: np.ndarray, labels: List[str], args: argparse.Namespace, outdir: Path, grids=None, groups=None, splits=None, sample_ids=None, collision_policy="error"):
     start = time.time()
     cv = StratifiedKFold(n_splits=args.cv_folds, shuffle=True, random_state=args.random_seed)
     y_pred = np.full(len(y), -1, dtype=int)
     fold_records = []
-    for fold, (tr, te) in enumerate(cv.split(X, y)):
+    plan = list(cv.split(X, y)) if splits is None else splits
+    oof_rows = []
+    for fold, (tr, te) in enumerate(plan):
         model = make_pipeline(model_name, args.cpus, args.random_seed, args.missingness)
         model, tuning = fit_with_optional_tuning(
             model, X.iloc[tr], y[tr], model_name=model_name,
             grids=grids or {}, metric=args.selection_metric,
             inner_folds=args.inner_cv_folds, seed=args.random_seed + fold,
+            groups=None if groups is None else groups[tr], collision_policy=collision_policy,
         )
+        collisions = None
+        if groups is not None:
+            collisions = audit_training_transform(X, tr, te, args.missingness, collision_policy)
+            if collision_policy == 'warn' and collisions['distinct_shared_profiles']:
+                print('WARNING: transformed train/test profile collision; see fold provenance', file=sys.stderr)
         y_pred[te] = model.predict(X.iloc[te])
+        probabilities = model.predict_proba(X.iloc[te])
+        for row, i in enumerate(te):
+            entry = {'sample_id': str(i) if sample_ids is None else sample_ids[i],
+                     'fold': fold, 'true_source': labels[y[i]], 'predicted_source': labels[y_pred[i]]}
+            entry.update({f'prob_{labels[int(cls)]}': float(probabilities[row,j])
+                          for j,cls in enumerate(model.classes_)})
+            oof_rows.append(entry)
         fold_records.append({
             "fold": fold,
             "train_n": len(tr),
@@ -206,12 +226,14 @@ def cross_validate_model(model_name: str, X: pd.DataFrame, y: np.ndarray, labels
             "loci_retained": len(model.named_steps["alleles"].retained_loci_),
             "loci": ",".join(model.named_steps["alleles"].retained_loci_),
             "tuning": json.dumps(tuning, sort_keys=True),
+            "collision_audit": json.dumps(collisions),
         })
     if np.any(y_pred < 0):
         raise ValueError("Some CV isolates were not evaluated")
     pd.DataFrame(fold_records).to_csv(
         outdir / f"cv_fold_retained_loci__{model_name}.tsv", sep="\t", index=False
     )
+    pd.DataFrame(oof_rows).to_csv(outdir / f'cv_oof_predictions__{model_name}.tsv', sep='\t', index=False)
     metrics = metric_dict(y, y_pred)
     cm = confusion_matrix(y, y_pred, labels=list(range(len(labels))))
     rep = classification_report(y, y_pred, labels=list(range(len(labels))),
@@ -274,6 +296,11 @@ def entropy_from_probs(p: np.ndarray) -> np.ndarray:
 
 def main():
     args = parse_args()
+    validation = load_validation_config(args.validation_config)
+    if validation and not args.cv_only:
+        raise SystemExit('Grouped validation currently requires --cv_only; group-bootstrap inference is not yet implemented')
+    if validation and args.max_train_rows:
+        raise SystemExit('Grouped validation disallows isolate-based --max_train_rows; subset whole groups upstream')
     t0 = time.time()
     outdir = timestamped_dir(args.output_dir, args.run_name)
     print(f"Outputs -> {outdir}", flush=True)
@@ -287,6 +314,7 @@ def main():
     if args.source_col not in train.columns:
         raise SystemExit(f"Training file lacks source column: {args.source_col}")
 
+    excluded = train.loc[~train[args.source_col].isin(keep_sources)].copy()
     train = train[train[args.source_col].isin(keep_sources)].copy()
     if args.max_train_rows and len(train) > args.max_train_rows:
         # Sampling within each source must preserve the source-label column.
@@ -323,7 +351,36 @@ def main():
     y = le.fit_transform(train[args.source_col].astype(str))
     labels = list(le.classes_)
 
+    groups, splits, sample_ids = None, None, None
+    if validation:
+        sample_ids, groups, splits, memberships, audits = prepare_grouped_validation(
+            train, X_raw, y, validation, args.cv_folds, args.random_seed)
+        memberships['source'] = le.inverse_transform(memberships['encoded_source'])
+        memberships.to_csv(outdir / 'validation_fold_membership.tsv', sep='\t', index=False)
+        excluded[[validation['id_column'], args.source_col]].assign(
+            reason='source not in keep_sources').to_csv(outdir / 'validation_exclusions.tsv', sep='\t', index=False)
+        if validation['collision_policy']=='warn' and any(a['distinct_shared_profiles'] for a in audits):
+            print('WARNING: raw train/test profile collisions; see validation_manifest.json', file=sys.stderr)
+        manifest = {'configuration': validation, 'seed':args.random_seed, 'folds':args.cv_folds,
+                    'collision_audits': audits, 'scope':'grouped outer CV; grouped inner tuning; CV-only',
+                    'class_counts': train[args.source_col].value_counts().to_dict(),
+                    'fold_class_counts': [{'fold':fold,
+                        'train': {str(labels[c]):int(np.sum(y[tr]==c)) for c in range(len(labels))},
+                        'test': {str(labels[c]):int(np.sum(y[te]==c)) for c in range(len(labels))}}
+                        for fold,(tr,te) in enumerate(splits)],
+                    'input_sha256': {key:hashlib.sha256(Path(path).read_bytes()).hexdigest()
+                        for key,path in [('train',args.train_file),('predict',args.predict_file),
+                                         ('validation_config',args.validation_config)]}}
+        if args.loci_file:
+            manifest['input_sha256']['loci_file']=hashlib.sha256(Path(args.loci_file).read_bytes()).hexdigest()
+        if args.tuning_config:
+            manifest['input_sha256']['tuning_config']=hashlib.sha256(Path(args.tuning_config).read_bytes()).hexdigest()
+        (outdir / 'validation_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     setup = {
+        "input_sha256": {key:hashlib.sha256(Path(path).read_bytes()).hexdigest()
+            for key,path in [('train',args.train_file),('predict',args.predict_file),
+                             ('validation_config',args.validation_config),('tuning_config',args.tuning_config),
+                             ('loci_file',args.loci_file)] if path},
         "train_file": args.train_file,
         "predict_file": args.predict_file,
         "source_col": args.source_col,
@@ -341,6 +398,9 @@ def main():
         "missingness_threshold": args.missingness,
         "models_requested": model_names,
         "cv_folds": args.cv_folds,
+        "validation": validation or {"strategy":"stratified"},
+        "cv_only": args.cv_only,
+        "random_seed": args.random_seed,
         "bootstrap_replicates": args.bootstrap,
         "burn_in": args.burn_in,
         "prediction_bootstrap_models": args.pred_bootstrap,
@@ -371,7 +431,11 @@ def main():
     for name in model_names:
         print(f"CV model: {name}", flush=True)
         try:
-            cv_rows.append(cross_validate_model(name, X_raw, y, labels, args, outdir, grids=grids))
+            cv_rows.append(cross_validate_model(name, X_raw, y, labels, args, outdir, grids=grids,
+                groups=groups, splits=splits, sample_ids=sample_ids,
+                collision_policy='error' if validation is None else validation['collision_policy']))
+        except ValidationDesignError:
+            raise
         except Exception as e:
             cv_rows.append({"model": name, "status": "failed", "error": f"{type(e).__name__}: {e}"})
             print(f"  skipped/failed: {e}", flush=True)
@@ -382,6 +446,10 @@ def main():
         raise SystemExit("All model comparisons failed")
     best_name = ok.sort_values(args.selection_metric, ascending=False).iloc[0]["model"]
     print(f"Best model by {args.selection_metric}: {best_name}", flush=True)
+
+    if args.cv_only:
+        print('CV-only completed: no bootstrap, final fit or query attribution performed', flush=True)
+        return
 
     # Proper bootstrap validation and prediction uncertainty using independently trained models.
     if args.burn_in >= args.bootstrap:
