@@ -61,6 +61,10 @@ class GroupedValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValidationDesignError,'metadata columns'):
             prepare_grouped_validation(self.frame,self.X,self.y,config,3,42)
 
+        with self.assertRaisesRegex(ValidationDesignError,'metadata columns'):
+            prepare_grouped_validation(self.frame,self.X.assign(source=self.y),self.y,
+                                       self.config,3,42,source_column='source')
+
     def test_raw_and_transformed_collisions_detected(self):
         with self.assertRaisesRegex(ValidationDesignError,'collision'):
             collision_audit([[1,np.nan]],[[1,np.nan]])

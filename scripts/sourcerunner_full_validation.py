@@ -354,7 +354,7 @@ def main():
     groups, splits, sample_ids = None, None, None
     if validation:
         sample_ids, groups, splits, memberships, audits = prepare_grouped_validation(
-            train, X_raw, y, validation, args.cv_folds, args.random_seed)
+            train, X_raw, y, validation, args.cv_folds, args.random_seed, source_column=args.source_col)
         memberships['source'] = le.inverse_transform(memberships['encoded_source'])
         memberships.to_csv(outdir / 'validation_fold_membership.tsv', sep='\t', index=False)
         excluded[[validation['id_column'], args.source_col]].assign(

@@ -100,10 +100,13 @@ def audit_training_transform(X, tr, te, missingness, policy):
                            policy, 'training-fitted transformed features')
 
 
-def prepare_grouped_validation(train, X, y, config, folds, seed):
+def prepare_grouped_validation(train, X, y, config, folds, seed, source_column=None):
     ids = metadata_values(train, config['id_column'], unique=True)
     groups = metadata_values(train, config['group_column'])
-    if {config['group_column'], config['id_column']} & set(X.columns):
+    metadata_columns = {config['group_column'], config['id_column']}
+    if source_column is not None:
+        metadata_columns.add(source_column)
+    if metadata_columns & set(X.columns):
         raise ValidationDesignError('Validation metadata columns must not be selected genomic loci')
     splits = grouped_splits(X, y, groups, folds, seed)
     records, audits = [], []
