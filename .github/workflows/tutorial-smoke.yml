@@ -13,6 +13,8 @@ on:
       - "tests/test_validation_features.py"
       - "tests/test_optional_tuning.py"
       - "scripts/sourcerunner_tuning.py"
+      - "scripts/sourcerunner_validation.py"
+      - "tests/test_grouped_validation.py"
       - "examples/tuning.example.json"
       - "scripts/sourcerunner_features.py"
       - ".github/workflows/tutorial-smoke.yml"
@@ -27,6 +29,8 @@ on:
       - "tests/test_validation_features.py"
       - "tests/test_optional_tuning.py"
       - "scripts/sourcerunner_tuning.py"
+      - "scripts/sourcerunner_validation.py"
+      - "tests/test_grouped_validation.py"
       - "examples/tuning.example.json"
       - "scripts/sourcerunner_features.py"
       - ".github/workflows/tutorial-smoke.yml"
@@ -48,6 +52,8 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_validation_features.py' -v
       - name: Test optional tuning on small partitions
         run: python -m unittest discover -s tests -p 'test_optional_tuning.py' -v
+      - name: Check grouped outer/inner validation and CV-only boundary
+        run: python -m unittest discover -s tests -p 'test_grouped_validation.py' -v
       - name: Generate and inspect toy data
         run: |
           python examples/toy_quickstart/make_toy_data.py --outdir toy_data

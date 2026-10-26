@@ -35,6 +35,16 @@ python scripts/source_runner_preflight.py --train toy_data/train.tsv --predict t
 
 Next, use the **[guided tutorial](docs/tutorial.md)** for a short model-fitting command, source-attribution vocabulary, interpretation exercises, and validation warnings.
 
+## v1.1 development: group-contained validation
+
+The optional [grouped validation path](docs/grouped_validation.md) keeps supplied
+ST/CC/LIN/hierCC groups intact in outer CV and inner tuning. It currently requires
+`--cv_only`: it does not yet provide group-bootstrap inference or geographic/time
+holdouts. The unconfigured workflow remains isolate-stratified. See the
+[initial audit/release plan](docs/v1.1/INITIAL_AUDIT_AND_PLAN.md) and
+[representation benchmark/paper outline](docs/v1.1/REPRESENTATION_BENCHMARK_AND_PAPER.md).
+This is development work, not a v1.1 release or empirical validation claim.
+
 ## Recommended workflow
 
 For most users, the supported path is:

@@ -1,0 +1,15 @@
+{
+  "purpose": "synthetic software tests only; not a release lockfile",
+  "python": "3.14.0 (main, Oct  7 2025, 09:34:52) [Clang 17.0.0 (clang-1700.3.19.1)]",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "packages": {
+    "numpy": "2.5.4",
+    "pandas": "3.0.6",
+    "scikit-learn": "1.9.1",
+    "joblib": "1.6.0",
+    "matplotlib": "3.11.2",
+    "scipy": "1.18.1"
+  },
+  "unit_tests": 15,
+  "existing_toy_workflow": "RF/logreg, 90 training rows, 12 query rows, CV=2, bootstrap=2; completed"
+}
